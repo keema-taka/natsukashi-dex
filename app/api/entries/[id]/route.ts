@@ -10,9 +10,9 @@ import fs from "node:fs/promises";
 // 詳細: GET /api/entries/:id
 export async function GET(
   _req: NextRequest,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // ← Promise を受け取る
 ) {
-  const { id } = ctx.params;
+  const { id } = await ctx.params;           // ← await して取り出す
 
   try {
     const entry = await prisma.entry.findUnique({
@@ -26,6 +26,8 @@ export async function GET(
         contributor: true, // Json
         likes: true,
         createdAt: true,
+        // age を使うなら true に
+        // age: true,
       },
     });
 
@@ -43,7 +45,7 @@ export async function GET(
 // 削除: DELETE /api/entries/:id（投稿者のみ）
 export async function DELETE(
   _req: NextRequest,
-  ctx: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // ← Promise
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -52,7 +54,7 @@ export async function DELETE(
     }
     const userId = (session.user as any).id || (session.user as any).sub || "";
 
-    const { id } = ctx.params;
+    const { id } = await ctx.params;         // ← await
 
     // 対象取得
     const entry = await prisma.entry.findUnique({
@@ -78,7 +80,6 @@ export async function DELETE(
       if (/^https?:\/\//i.test(url)) return;
       if (!url.startsWith("/uploads/")) return;
 
-      // 先頭スラッシュを外して public 配下に解決（WindowsでもOK）
       const rel = url.replace(/^\/+/, ""); // "uploads/xxx.png"
       const abs = path.resolve(process.cwd(), "public", rel);
       try {

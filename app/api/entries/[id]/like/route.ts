@@ -1,36 +1,45 @@
 // app/api/entries/[id]/like/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-// いいねしたユーザー一覧を返す
+export const runtime = "nodejs"; // Edge だと next-auth が不安定なので Node を明示
+
+// ---- いいねしたユーザー一覧（直近 limit 件） ----
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await ctx.params;
-    const url = new URL(_req.url);
-    const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit") ?? 20), 100));
+
+    const url = new URL(req.url);
+    const raw = Number(url.searchParams.get("limit") ?? 20);
+    const limit = Number.isFinite(raw) ? Math.max(1, Math.min(raw, 100)) : 20;
 
     const likes = await prisma.like.findMany({
       where: { entryId: id },
       orderBy: { createdAt: "desc" },
       take: limit,
-      select: { userId: true, userName: true, userAvatar: true, createdAt: true },
+      select: {
+        userId: true,
+        userName: true,
+        userAvatar: true,
+        createdAt: true,
+      },
     });
 
     return NextResponse.json({ users: likes }, { status: 200 });
   } catch (e) {
-    console.error("GET /api/entries/[id]/like failed", e);
+    console.error("GET /api/entries/[id]/like failed:", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
 
-// いいねトグル／付与／解除
+// ---- いいね：toggle / like / unlike ----
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -44,67 +53,67 @@ export async function PATCH(
     const userAvatar = (session.user as any).image || null;
 
     const { id } = await ctx.params;
+
     const { action: raw } = await req.json().catch(() => ({ action: "toggle" }));
     const action: "like" | "unlike" | "toggle" =
       raw === "like" || raw === "unlike" ? raw : "toggle";
 
-    // 投稿が存在するか一応チェック
-    const exists = await prisma.entry.findUnique({ where: { id }, select: { id: true } });
-    if (!exists) return NextResponse.json({ error: "not found" }, { status: 404 });
+    // 対象投稿チェック
+    const exists = await prisma.entry.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!exists) {
+      return NextResponse.json({ error: "not found" }, { status: 404 });
+    }
 
+    // 既存のいいね有無
     const existing = await prisma.like.findUnique({
+      // prisma/schema.prisma で `@@unique([entryId, userId], name: "entryId_userId")`
       where: { entryId_userId: { entryId: id, userId } },
       select: { id: true },
     });
 
-    // 実行する操作を決定
+    // 実行アクション決定
     const willLike =
-      action === "like" ? true :
-      action === "unlike" ? false :
-      !existing; // toggle
+      action === "like" ? true : action === "unlike" ? false : !existing;
 
     if (willLike) {
-      // 既に押していればそのまま返す
+      // 既に押していれば件数だけ返す
       if (existing) {
         const count = await prisma.like.count({ where: { entryId: id } });
         await prisma.entry.update({ where: { id }, data: { likes: count } });
         return NextResponse.json({ likes: count, action: "noop" }, { status: 200 });
       }
 
-      // いいね作成 + カウンタ同期
-      const result = await prisma.$transaction(async (tx) => {
+      // 付与 → 件数同期
+      const newCount = await prisma.$transaction(async (tx) => {
         await tx.like.create({
           data: { entryId: id, userId, userName, userAvatar },
         });
         const count = await tx.like.count({ where: { entryId: id } });
-        const updated = await tx.entry.update({
-          where: { id },
-          data: { likes: count },
-          select: { likes: true },
-        });
-        return updated.likes;
+        await tx.entry.update({ where: { id }, data: { likes: count } });
+        return count;
       });
 
-      return NextResponse.json({ likes: result }, { status: 200 });
+      return NextResponse.json({ likes: newCount }, { status: 200 });
     } else {
-      // いいね削除（無ければそのまま）
-      const result = await prisma.$transaction(async (tx) => {
+      // 解除（存在しなければ何もしない）→ 件数同期
+      const newCount = await prisma.$transaction(async (tx) => {
         if (existing) {
-          await tx.like.delete({ where: { entryId_userId: { entryId: id, userId } } });
+          await tx.like.delete({
+            where: { entryId_userId: { entryId: id, userId } },
+          });
         }
         const count = await tx.like.count({ where: { entryId: id } });
-        const updated = await tx.entry.update({
-          where: { id },
-          data: { likes: count },
-          select: { likes: true },
-        });
-        return updated.likes;
+        await tx.entry.update({ where: { id }, data: { likes: count } });
+        return count;
       });
 
-      return NextResponse.json({ likes: result }, { status: 200 });
+      return NextResponse.json({ likes: newCount }, { status: 200 });
     }
   } catch (e) {
-    console.error("PATCH /api/entries/[id]/like failed", e);
+    console.error("PATCH /api/entries/[id]/like failed:", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
