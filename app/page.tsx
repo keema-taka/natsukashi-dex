@@ -24,8 +24,19 @@ const FALLBACK_IMG =
   "https://placehold.co/800x450?text=No+Image";
 
 const FIXED_TAGS: string[] = [
-  "ゲーム機", "携帯ゲーム", "アニメ", "玩具", "お菓子",
-  "文房具", "音楽", "ファッション", "雑誌", "家電",
+  "ゲーム機",
+  "アニメ",
+  "漫画",     // 追加
+  "おもちゃ",
+  "お菓子",
+  "文房具",
+  "音楽",
+  "ファッション",
+  "雑誌",
+  "家電",
+  "スポーツ", // 追加
+  "⚽️",       // 追加
+  "⚾️",       // 追加
 ];
 
 // 小さめピル（未使用でも残してOK）
@@ -61,14 +72,22 @@ function HeaderHero({
 
         {/* HeaderHero 内ボタン行 */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => (user ? onOpenCreate() : signIn("discord"))}
-            className="btn-retro"
-          >
-            登録する
-          </button>
-          {/* 図鑑を共有ボタンは削除 */}
-        </div>
+  <button
+    onClick={() => {
+      if (user) {
+        onOpenCreate();
+      } else {
+        if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+          signIn("discord");
+        }
+      }
+    }}
+    className="btn-retro"
+  >
+    登録する
+  </button>
+  {/* 図鑑を共有ボタンは削除のまま */}
+</div>
       </div>
     </section>
   );
@@ -141,7 +160,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" id="create">
       <div className="absolute inset-0 bg-black/30" onClick={(e) => e.currentTarget === e.target && onClose()} />
-      <div className="relative z-50 w-[640px] max-w-[92vw] sticker pixel-border p-6 md:p-8 bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative z-50 w-full sm:w-[640px] max-w-[92vw] sticker pixel-border p-6 md:p-8 bg-white shadow-xl overflow-x-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b">
           <h3 className="text-lg font-semibold">平成レトロな思い出を登録</h3>
           <p className="text-sm text-neutral-500">写真と一言エピソードでOK。みんなの記憶を集めよう。</p>
@@ -153,7 +172,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
             <input
               required
               aria-invalid={!!errors.title}
-              className={`border rounded-lg px-3 py-2 ${errors.title ? "border-pink-400" : ""}`}
+              className={`w-full border rounded-lg px-3 py-2 ${errors.title ? "border-pink-400" : ""}`}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               placeholder="例）ゲームボーイポケット"
@@ -166,7 +185,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
             <textarea
               required
               aria-invalid={!!errors.episode}
-              className={`border rounded-lg px-3 py-2 min-h-[88px] ${errors.episode ? "border-pink-400" : ""}`}
+              className={`w-full border rounded-lg px-3 py-2 min-h-[88px] ${errors.episode ? "border-pink-400" : ""}`}
               value={form.episode}
               onChange={(e) => setForm({ ...form, episode: e.target.value })}
               placeholder="例）放課後に友だちとポケモン交換してた…"
@@ -208,7 +227,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
 
           <label className="grid gap-1">
             <span className="text-sm">画像ファイル（任意・5MBまで）</span>
-            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="border rounded-lg px-3 py-2" />
+            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full border rounded-lg px-3 py-2 file:mr-3 file:px-3 file:py-2 file:rounded-md file:border file:bg-white file:hover:bg-neutral-50 file:border-neutral-300" />
             <span className="text-xs text-neutral-500">※ 直接URL入力よりもファイル選択を優先します</span>
           </label>
         </div>
@@ -704,13 +723,20 @@ export default function Page() {
 
       {/* 右下の追従＋ボタン（PC/SP 共通） */}
       <button
-        aria-label="新しい思い出を登録"
-        onClick={() => (user ? setOpenModal(true) : signIn("discord"))}
-        className="fab"
-        title="新規投稿"
-      >
-        ＋
-      </button>
+  aria-label="新しい思い出を登録"
+  onClick={() => {
+    if (user) {
+      setOpenModal(true);
+    } else {
+      if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+        signIn("discord");
+      }
+    }
+  }}
+  className="fab"
+>
+  ＋
+</button>
 
       {/* 作成モーダル */}
       <CreateModal open={openModal} onClose={() => setOpenModal(false)} onCreate={onCreate} />
