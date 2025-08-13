@@ -4,8 +4,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"          // ← 本番DBはPostgreSQLに
-  url      = env("DATABASE_URL")   // ← Renderの環境変数から読む
+  // Render 本番は現在 SQLite を使用（DATABASE_URL = file:/tmp/sqlite.db 等）
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model Entry {
@@ -15,11 +16,13 @@ model Entry {
   age         Int?
   tags        String   @default("")          // CSV
   imageUrl    String
-  contributor Json                           // { id,name,avatarUrl }
-  likes       Int      @default(0)           // 既存のカウンタ
+  contributor Json                           // { id, name, avatarUrl }
+  likes       Int      @default(0)           // 集計カウンタ
   createdAt   DateTime @default(now())
+
+  // リレーション
   comments    Comment[]
-  likesRel    Like[]                         // いいねの実体（誰が押したか）
+  likesRel    Like[]                         // いいね実体（誰が押したか）
 }
 
 model Comment {
@@ -44,6 +47,6 @@ model Like {
 
   entry      Entry    @relation(fields: [entryId], references: [id])
 
-  @@unique([entryId, userId])            // 同じ人が同じ投稿に重複いいね不可
+  @@unique([entryId, userId])            // 同一ユーザーの重複いいね防止
   @@index([entryId, createdAt])
 }
