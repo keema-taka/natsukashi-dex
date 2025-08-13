@@ -8,12 +8,9 @@ export const dynamic = "force-dynamic";
 
 const UPLOAD_DIR = "/tmp/uploads";
 
-export async function GET(
-  _req: Request,
-  ctx: { params: { file: string } }
-) {
+export async function GET(_req: Request, ctx: { params: { file: string } }) {
   try {
-    // ディレクトリトラバーサル対策：basename のみ許可
+    // ディレクトリトラバーサル対策：basenameのみ許可
     const name = path.basename(ctx.params.file || "");
     if (!name) {
       return NextResponse.json({ error: "bad request" }, { status: 400 });
@@ -22,11 +19,20 @@ export async function GET(
     const abs = path.join(UPLOAD_DIR, name);
     const data = await fs.readFile(abs);
 
-        const mime = extToMime(path.extname(name).toLowerCase()) || "application/octet-stream";
+    const mime =
+      extToMime(path.extname(name).toLowerCase()) || "application/octet-stream";
 
-    const uint8 = new Uint8Array(data);
-return new Response(uint8, { headers: { "Content-Type": mime } });
+    // Buffer -> Uint8Array で Response に渡す
+    const body = new Uint8Array(data);
 
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "Content-Type": mime,
+        "Content-Length": String(body.byteLength),
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
   } catch (e: any) {
     if (e?.code === "ENOENT") {
       return NextResponse.json({ error: "not found" }, { status: 404 });
