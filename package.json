@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@prisma/client": "^6.13.0",
-    "@tailwindcss/line-clamp": "^0.4.4",
     "autoprefixer": "^10.4.21",
     "next": "15.4.6",
     "next-auth": "^4.24.11",
@@ -32,8 +31,5 @@
     "eslint-config-next": "15.4.6",
     "prisma": "^6.13.0",
     "typescript": "^5"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.cjs"
   }
 }
