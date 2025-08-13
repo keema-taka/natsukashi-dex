@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "prebuild": "prisma generate",
-    "build": "next build",
-    "start": "next start -p $PORT",
-    "postinstall": "prisma generate",
-    "lint": "next lint",
-    "prisma:migrate:deploy": "prisma migrate deploy"
-  },
+  "dev": "next dev",
+  "prebuild": "prisma generate",
+  "build": "next build",
+  "start": "next start",
+  "postinstall": "prisma generate",
+  "lint": "next lint",
+  "prisma:migrate:deploy": "prisma migrate deploy"
+},
   "dependencies": {
     "@prisma/client": "^6.13.0",
     "next": "15.4.6",
