@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Vars ===== */
+:root{
+  --ink:#1a1a1a;
+  --paper:#fffdf7;
+  --retro-green:#2f7d32;
+}
+
+/* ===== Base ===== */
+body{
+  background:
+    radial-gradient(circle at 1px 1px, rgba(0,0,0,.06) 1px, transparent 1.2px) 0 0/12px 12px,
+    var(--paper);
+  color: var(--ink);
+}
+
+.container-page{ @apply max-w-3xl mx-auto px-4; }
+
+/* sticky header */
+.header-retro{
+  position: sticky; top: 0; z-index: 40;
+  background: var(--retro-green); color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+
+/* ===== Cards / Stickers ===== */
+.sticker{
+  border-radius: 18px;
+  border: 1.5px solid #dfeadd;
+  background: #fff;
+  box-shadow: 4px 4px 0 0 var(--ink);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.sticker:hover{ transform: translate(-1px,-1px); box-shadow: 6px 6px 0 0 var(--ink); }
+.rt{ transform: rotate(var(--r, 0deg)); }
+.rt:hover{ transform: rotate(0deg) translate(-1px,-1px); }
+
+/* hero */
+.hero-card{ background: linear-gradient(180deg,#ffffff,#fffaf5); position: relative; }
+.hero-card::after{
+  content:""; position:absolute; right:56px; bottom:-10px;
+  width:96px; height:18px; border-radius:9999px;
+  background: #3b823a1a; filter: blur(1px);
+}
+
+/* ===== Pills / Buttons ===== */
+.pill{ @apply px-2 py-0.5 text-xs rounded-full bg-neutral-50 border border-neutral-200; }
+
+.btn-retro{
+  @apply px-4 py-2 rounded-xl bg-[#2f7d32] text-white shadow-sm active:scale-95;
+}
+.btn-retro:hover{ filter: brightness(.95); }
+.btn-retro-outline{
+  @apply px-4 py-2 rounded-xl border border-[#2f7d32] text-[#2f7d32] bg-white active:scale-95;
+}
+.btn-retro-outline:hover{ background:#f4fff4; }
+
+/* ===== FAB ===== */
+.fab{
+  position: fixed; right: 20px; bottom: max(20px, env(safe-area-inset-bottom));
+  width: 56px; height: 56px; border-radius: 9999px;
+  background: var(--retro-green); color: #fff;
+  font-size: 32px; line-height: 1; display: grid; place-items: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  transition: transform .1s ease;
+}
+.fab:active{ transform: scale(.97); }
+
+/* ===== Animations ===== */
+@keyframes pop{ 0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)} }
+.like-pop{ animation: pop .35s ease-out; }
+
+@keyframes burst{
+  0%{opacity:0; transform:scale(.5) translateY(0)}
+  60%{opacity:1}
+  100%{opacity:0; transform:scale(1.6) translateY(-10px)}
+}
+.burst{
+  position:absolute; right:-2px; top:-2px; pointer-events:none;
+  font-size:14px; animation: burst .45s ease-out forwards;
+}
+
+/* ===== Utils ===== */
+.no-scrollbar::-webkit-scrollbar{ display:none; }
+.no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+
+@media (max-width: 640px){
+  .entry-title{ font-size: 17px; line-height: 1.25; }
+}
+/* ==== Header polish (compact) ==== */
+.header-retro .brand {
+  display:flex; align-items:center; gap:.5rem;
+  min-width:0; /* ← 子要素truncateを効かせる */
+}
+.header-retro .brand-title{
+  white-space: nowrap;          /* タイトルは折り返さない */
+  font-weight:700;
+  font-size: clamp(16px, 2vw, 18px);
+  letter-spacing:.02em;
+}
+.header-retro .brand-sub {
+  opacity:.85;
+  font-size: 12px;
+  white-space: nowrap;          /* サブも折り返さない */
+}
+
+/* ヘッダー右側のアクションを詰める */
+.header-actions{
+  display:flex; align-items:center; gap:.5rem;
+}
+
+/* 小さめの認証ボタン（ログイン/ログアウト） */
+.btn-auth{
+  height:32px; padding:0 .6rem;
+  border-radius:10px;
+  font-size:12px; line-height:1;
+  background:#ffffff; color:#1a1a1a;
+  border:1px solid rgba(0,0,0,.12);
+}
+.btn-auth:hover{ background:#f4fff4; border-color:#cfe7d1; }
+
+/* SPではユーザー名は隠してアイコンだけに（詰める） */
+@media (max-width: 640px){
+  .auth-name{ display:none; }
+}
+
+/* ユーザーアイコンを小さめに */
+.header-avatar{
+  width:28px; height:28px; border-radius:9999px; object-fit:cover;
+  border:1px solid rgba(0,0,0,.08);
+}
+
+/* 見出しや任意の要素で改行を避けたいとき用 */
+.nowrap{ white-space: nowrap; }
+.keep-all{ word-break: keep-all; } /* CJKの行分割を抑制（対応ブラウザで） */
+/* ==== Header compact - SP崩れ対策 ==== */
+/* ヘッダーの行間・サイズ微調整（SPで詰まない） */
+.header-retro .container-page { line-height: 1; }
+
+
+.header-retro .brand{ min-width:0; display:flex; align-items:center; gap:.5rem; }
+.header-retro .brand-title{
+  white-space:nowrap;
+  font-weight:700;
+  font-size:clamp(15px,2vw,18px);
+}
+.header-retro .brand-sub{
+  white-space:nowrap;           /* 折り返さない */
+  text-overflow:ellipsis;       /* 入り切らない時は… */
+  overflow:hidden;
+  max-width:56vw;               /* 右側ボタンを考慮して幅制限 */
+  font-size:12px;
+  opacity:.9;
+}
+@media (max-width: 380px){
+  .header-retro .brand-sub{ display:none; }  /* 超狭幅では非表示で窮屈さ回避 */
+}
+
+/* 右側アクション（ログイン/ログアウト）を小型化＆折返し回避 */
+.header-actions{ display:flex; align-items:center; gap:.4rem; flex-shrink:0; }
+
+.btn-auth{
+  height:30px; padding:0 .55rem;
+  border-radius:10px; font-size:12px; line-height:1;
+  background:#fff; color:#1a1a1a; border:1px solid rgba(0,0,0,.12);
+  white-space:nowrap;
+}
+.btn-auth:hover{ background:#f4fff4; border-color:#cfe7d1; }
+
+/* SPではボタンの文字は隠してアイコンのみ表示（はみ出し防止） */
+.btn-auth .label{ display:none; }        /* 〜640pxはラベル非表示 */
+.btn-auth .icon { display:inline; }      /* アイコン表示 */
+@media (min-width: 641px){
+  .btn-auth .label{ display:inline; }
+  .btn-auth .icon { display:none; }
+}
+
+/* ユーザー名はSPでは非表示で詰める */
+.auth-name{ opacity:.9; font-size:12px; }
+@media (max-width:640px){ .auth-name{ display:none; } }
+
+/* ユーザーアイコンも少しだけ小さく */
+.header-avatar{ width:28px; height:28px; border-radius:9999px; object-fit:cover; border:1px solid rgba(0,0,0,.08); }

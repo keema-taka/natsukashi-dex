@@ -1,0 +1,49 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"          // ← 本番DBはPostgreSQLに
+  url      = env("DATABASE_URL")   // ← Renderの環境変数から読む
+}
+
+model Entry {
+  id          String   @id @default(cuid())
+  title       String
+  episode     String
+  age         Int?
+  tags        String   @default("")          // CSV
+  imageUrl    String
+  contributor Json                           // { id,name,avatarUrl }
+  likes       Int      @default(0)           // 既存のカウンタ
+  createdAt   DateTime @default(now())
+  comments    Comment[]
+  likesRel    Like[]                         // いいねの実体（誰が押したか）
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  entryId   String
+  body      String
+  author    Json
+  createdAt DateTime @default(now())
+
+  entry     Entry    @relation(fields: [entryId], references: [id])
+
+  @@index([entryId, createdAt])
+}
+
+model Like {
+  id         String   @id @default(cuid())
+  entryId    String
+  userId     String
+  userName   String
+  userAvatar String?
+  createdAt  DateTime @default(now())
+
+  entry      Entry    @relation(fields: [entryId], references: [id])
+
+  @@unique([entryId, userId])            // 同じ人が同じ投稿に重複いいね不可
+  @@index([entryId, createdAt])
+}
