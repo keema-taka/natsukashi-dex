@@ -32,4 +32,11 @@ export const authOptions: NextAuthOptions = {
   // SSR/ISRでも安定させたい場合の保険（省略可）
   session: { strategy: "jwt" },
   // callbacks: { ... } // 既存があればそのまま
+  logger: {
+    error(code, metadata) {
+      console.error("[next-auth][error]", code, metadata);
+    },
+    warn(code) { console.warn("[next-auth][warn]", code); },
+    debug(code, metadata) { console.log("[next-auth][debug]", code, metadata); },
+  },
 };
