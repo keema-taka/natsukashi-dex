@@ -44,11 +44,13 @@ const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
 const DISCORD_BOT_TOKEN   = process.env.DISCORD_BOT_TOKEN;
 const DISCORD_CHANNEL_ID  = process.env.DISCORD_CHANNEL_ID;
 
+const MARKER = "[natsukashi-dex]"; // ← フォールバック用の目印
+
 function clamp(str: string, max: number) {
   return (str ?? "").slice(0, max);
 }
 
-/** Webhook: JSON 1回だけ（添付なし）— embed を必ず付ける */
+/** Webhook: JSON 1回だけ（添付なし）— embed が無い/空でも content から復元できるようにする */
 async function notifyDiscord(
   baseUrl: string,
   entry: { id: string; title: string; episode: string; imageUrl?: string | null },
@@ -56,13 +58,24 @@ async function notifyDiscord(
 ) {
   if (!DISCORD_WEBHOOK_URL) return null;
 
-  const detailUrl = `${baseUrl.replace(/\/+$/,"")}/entries/${entry.id}`;
+  const base = baseUrl.replace(/\/+$/,"");
+  const detailUrl = `${base}/entries/${entry.id}`;
   const absImageUrl =
     entry.imageUrl && /^https?:\/\//i.test(entry.imageUrl)
       ? entry.imageUrl
       : entry.imageUrl
-      ? `${baseUrl.replace(/\/+$/,"")}${entry.imageUrl.startsWith("/") ? "" : "/"}${entry.imageUrl}`
+      ? `${base}${entry.imageUrl.startsWith("/") ? "" : "/"}${entry.imageUrl}`
       : null;
+
+  const safe = (s: string, n:number)=> (s ?? "").slice(0, n);
+
+  // ★ ここが追加：content に機械可読な行を入れておく（embedが落ちても復元可能）
+  const contentLines = [
+    `${MARKER} ${contributor.name} の投稿`,
+    `title: ${safe(entry.title, 256)}`,
+    `episode: ${safe(entry.episode, 4096)}`,
+    absImageUrl ? `image: ${absImageUrl}` : null,
+  ].filter(Boolean);
 
   const embed = {
     type: "rich" as const,
@@ -74,8 +87,7 @@ async function notifyDiscord(
   };
 
   const payload = {
-    // 空でもOKだが、見落とし防止で 1 文字入れておく
-    content: `${contributor.name} の投稿`,
+    content: contentLines.join("\n"),
     allowed_mentions: { parse: [] as string[] },
     embeds: [embed],
   };
@@ -104,34 +116,64 @@ function getWebhookIdFromUrl(url?: string | null): string | null {
   const m = url.match(/\/webhooks\/(\d+)\//);
   return m ? m[1] : null;
 }
-
 const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
 
+/** content からフォールバックで復元 */
+function parseFromContent(content: string) {
+  const out: {title?: string; episode?: string; imageUrl?: string; name?: string; marked?: boolean} = {};
+  const lines = (content || "").split(/\r?\n/).map(s => s.trim());
+  for (const ln of lines) {
+    if (ln.startsWith(MARKER)) {
+      out.marked = true;
+      // 1行目: "[natsukashi-dex] {name} の投稿"
+      const m = ln.match(/\]\s*(.+?)\s*の投稿$/);
+      if (m) out.name = m[1];
+    } else if (ln.toLowerCase().startsWith("title:")) {
+      out.title = ln.slice(6).trim();
+    } else if (ln.toLowerCase().startsWith("episode:")) {
+      out.episode = ln.slice(8).trim();
+    } else if (ln.toLowerCase().startsWith("image:")) {
+      out.imageUrl = ln.slice(6).trim();
+    }
+  }
+  return out;
+}
 
-// Discord メッセージ → エントリ整形
+// Discord メッセージ → エントリ整形（embed が空でも content/添付から復元）
 function mapDiscordMessageToEntry(m: any) {
   const e = m.embeds?.[0] ?? {};
-  // 添付の先頭を画像候補に
-  const attachUrl = Array.isArray(m.attachments) && m.attachments[0]?.url ? m.attachments[0].url : "";
+  // ① embed から
+  let title   = e.title ?? "";
+  let episode = e.description ?? "";
+  let image   = e?.image?.url ?? "";
 
-  const name = typeof m.content === "string" && m.content.endsWith(" の投稿")
-    ? m.content.replace(/ の投稿$/, "")
-    : "unknown";
+  // ② content から復元（MARKER 付き）
+  const parsed = typeof m.content === "string" ? parseFromContent(m.content) : {};
+  if (!title && parsed.title)   title = parsed.title;
+  if (!episode && parsed.episode) episode = parsed.episode;
+  if (!image && parsed.imageUrl)   image = parsed.imageUrl;
+
+  // ③ 添付（画像）フォールバック
+  if (!image && Array.isArray(m.attachments) && m.attachments[0]?.url) {
+    image = m.attachments[0].url;
+  }
+
+  // 投稿者名（content優先 → 末尾「 の投稿」フォーマット → unknown）
+  let name = parsed.name || (typeof m.content === "string" && / の投稿$/.test(m.content) ? m.content.replace(/ の投稿$/, "") : "unknown");
+
+  // アイコン
+  const avatarUrl = (m.author?.avatar && m.author?.id)
+    ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`
+    : "https://i.pravatar.cc/100?img=1";
 
   return {
     id: m.id,
-    title: e.title ?? "(無題)",
-    episode: e.description ?? "",          // embed ない場合は空のまま
+    title: title || "(無題)",
+    episode: episode || "",
     age: null as number | null,
     tags: "",
-    imageUrl: (e.image?.url ?? attachUrl ?? ""),
-    contributor: {
-      id: "discord",
-      name,
-      avatarUrl: m.author?.avatar
-        ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`
-        : "https://i.pravatar.cc/100?img=1",
-    },
+    imageUrl: image || "",
+    contributor: { id: "discord", name, avatarUrl },
     likes: 0,
     createdAt: new Date(m.timestamp),
   };
@@ -140,7 +182,6 @@ function mapDiscordMessageToEntry(m: any) {
 // ---- GET: 一覧（Discord から復元） -----------------
 export async function GET(req: NextRequest) {
   try {
-    // デバッグモードの有無
     const debug = req.nextUrl.searchParams.get("debug");
 
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
@@ -155,7 +196,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ entries: rows }, { status: 200 });
     }
 
-    // Discordから取得
     const r = await fetch(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
       { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }
@@ -170,7 +210,6 @@ export async function GET(req: NextRequest) {
     const msgs = (await r.json()) as any[];
     if (debug === "1") {
       console.log("[entries][debug] fetched msgs =", msgs.length);
-      // 先頭3件だけサンプル表示
       for (const m of msgs.slice(0, 3)) {
         console.log("[entries][debug] sample", {
           id: m.id,
@@ -181,28 +220,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // フィルタ
+    // フィルタ（どれか1つでも当たれば採用）
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-const isOurs = (m: any) => {
-  const e = m.embeds?.[0];
-  const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-  const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
-  const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
-  const webhookOk = WEBHOOK_ID && m.webhook_id === WEBHOOK_ID;
-  // どれか1つでもOK
-  return !!(hasFooter || urlOk || contentOk || webhookOk);
-};
-
+    const isOurs = (m: any) => {
+      const e = m.embeds?.[0];
+      const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
+      const urlOk     = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+      const contentOk = typeof m.content === "string" && (m.content.includes(MARKER) || / の投稿$/.test(m.content));
+      const webhookOk = WEBHOOK_ID && String(m.webhook_id) === WEBHOOK_ID; // Webhook 経由
+      return !!(hasFooter || urlOk || contentOk || webhookOk);
+    };
 
     let mine = msgs.filter(isOurs);
 
-    // もし全滅したら、URLチェックを緩和（環境変数未設定などの保険）
+    // 全滅時のセーフティ（URLチェックを緩和）
     if (mine.length === 0) {
       if (debug === "1") console.warn("[entries][debug] filter hit = 0; relax URL check");
       const relax = (m: any) => {
         const e = m.embeds?.[0];
         const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-        const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
+        const contentOk = typeof m.content === "string" && (m.content.includes(MARKER) || / の投稿$/.test(m.content));
         return hasFooter || contentOk;
       };
       mine = msgs.filter(relax);
@@ -217,7 +254,6 @@ const isOurs = (m: any) => {
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
-
 
 // ---- POST: 作成（Discord へ投稿 → message.id を id に採用） ----
 export async function POST(req: NextRequest) {
@@ -238,7 +274,7 @@ export async function POST(req: NextRequest) {
     // 先に Discord へ投稿（待機して message.id をもらう）
     const baseUrl = resolveBaseUrl(req);
     const msg = await notifyDiscord(baseUrl, {
-      id: "tmp",
+      id: "tmp", // 詳細URLには使わないので暫定OK
       title: String(body.title ?? ""),
       episode: String(body.episode ?? ""),
       imageUrl: String(body.imageUrl ?? ""),
@@ -246,8 +282,7 @@ export async function POST(req: NextRequest) {
 
     const discordId: string | null = msg?.id ?? null;
 
-    // DB を併用する場合：id を Discord の message.id で固定しておくと参照が楽
-    // （Render 無料枠だと消えますが、likes/comments の参照キーとして将来使えます）
+    // DB は参照キーとして保持（将来用）
     const created = await prisma.entry.create({
       data: {
         id: discordId ?? undefined, // 取れなければ自動採番
@@ -265,10 +300,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // id を Discord の id に合わせたかったが取得できなかった場合、
-    // クライアント遷移のためだけに上書きして返す（暫定）
     const responseEntry = discordId ? { ...created, id: discordId } : created;
-
     return NextResponse.json({ entry: responseEntry }, { status: 201 });
   } catch (e) {
     console.error("POST /api/entries failed", e);
