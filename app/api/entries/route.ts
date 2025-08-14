@@ -184,6 +184,7 @@ export async function GET(req: NextRequest) {
   try {
     const debug = req.nextUrl.searchParams.get("debug");
 
+    // Bot 経由で取得できない場合は DB から返す（ローカル保険）
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
@@ -196,52 +197,82 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ entries: rows }, { status: 200 });
     }
 
-    const r = await fetch(
-      `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
-      { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }
-    );
+    // ここが実際の Discord API 呼び出し
+    const discordApiUrl = `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`;
+    const resp = await fetch(discordApiUrl, {
+      headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+      // 失敗時に役立つので付けておく（不要なら削ってOK）
+      cache: "no-store",
+    });
 
-    if (!r.ok) {
-      const t = await r.text().catch(() => "");
-      console.error("[discord] fetch messages failed:", r.status, r.statusText, t);
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      console.error("[discord] fetch messages failed:", resp.status, resp.statusText, t);
       return NextResponse.json({ entries: [] }, { status: 200 });
     }
 
-    const msgs = (await r.json()) as any[];
+    const msgs = (await resp.json()) as any[];
 
-  // ★ ここを書き換え
-  const appUrl  = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-  const marker  = "[natsukashi-dex]";
-  const webhookId = WEBHOOK_ID; // 既存のまま
+    // デバッグ表示
+    if (debug === "1") {
+      console.log("[entries][debug] WEBHOOK_ID =", WEBHOOK_ID);
+      console.log(
+        "[entries][debug] sample(3)=",
+        msgs.slice(0, 3).map((m) => ({
+          id: m.id,
+          webhook_id: m.webhook_id,
+          footer: m.embeds?.[0]?.footer?.text,
+          hasMarker: typeof m.content === "string" && m.content.includes(MARKER),
+          url: m.embeds?.[0]?.url,
+        }))
+      );
+    }
 
-  const isOurs = (m: any) => {
-    const e = m.embeds?.[0];
-    const hasFooter   = (e?.footer?.text ?? "") === "natsukashi-dex";
-    const urlOk       = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
-    const contentMark = typeof m.content === "string" && m.content.includes(marker);
-
-    // 自分の webhook の投稿 かつ 目印がある（footer or marker or url）
-    const fromMyWebhook = webhookId && String(m.webhook_id) === webhookId;
-
-    return !!(fromMyWebhook && (hasFooter || contentMark || urlOk));
-  };
-
-  let mine = msgs.filter(isOurs);
-
-  // 全滅時のセーフティ（既存どおりでOK）
-  if (mine.length === 0) {
-    const relax = (m: any) => {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+    const isOursStrict = (m: any) => {
       const e = m.embeds?.[0];
-      const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-      const contentOk = typeof m.content === "string" && m.content.includes(marker);
-      return hasFooter || contentOk;
-    };
-    mine = msgs.filter(relax);
-  }
+      const hasFooter   = (e?.footer?.text ?? "") === "natsukashi-dex";
+      const urlOk       = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+      const contentMark = typeof m.content === "string" && m.content.includes(MARKER);
+      const hasAnyMark  = hasFooter || contentMark || urlOk;
 
-  const entries = mine.map(mapDiscordMessageToEntry);
-  return NextResponse.json({ entries }, { status: 200 });
-} catch (e) {
+      if (WEBHOOK_ID) {
+        const fromMyWebhook = String(m.webhook_id ?? "") === WEBHOOK_ID;
+        return fromMyWebhook && hasAnyMark;
+      }
+      return hasAnyMark;
+    };
+
+    let mine = msgs.filter(isOursStrict);
+
+    // 全滅フォールバック：MARKER のみ
+    if (mine.length === 0) {
+      const relaxed = msgs.filter(
+        (m) => typeof m.content === "string" && m.content.includes(MARKER)
+      );
+      if (debug === "1") {
+        console.warn("[entries][debug] strict filter = 0; relaxed by MARKER =", relaxed.length);
+      }
+      mine = relaxed;
+    }
+
+    // さらに全滅なら footer / url のみ
+    if (mine.length === 0) {
+      const fallback = msgs.filter((m) => {
+        const e = m.embeds?.[0];
+        const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
+        const urlOk     = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+        return hasFooter || urlOk;
+      });
+      if (debug === "1") {
+        console.warn("[entries][debug] relaxed(MARKER) = 0; fallback(footer/url) =", fallback.length);
+      }
+      mine = fallback;
+    }
+
+    const entries = mine.map(mapDiscordMessageToEntry);
+    return NextResponse.json({ entries }, { status: 200 });
+  } catch (e) {
     console.error("GET /api/entries failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
