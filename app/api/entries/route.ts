@@ -49,23 +49,28 @@ async function notifyDiscord(
   contributor: Contributor
 ) {
   const webhook = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhook) return;
+  if (!webhook) {
+    console.warn("[discord] DISCORD_WEBHOOK_URL が未設定です。通知をスキップしました。");
+    return;
+  }
 
   const detailUrl = `${baseUrl}/entries/${entry.id}`;
-  const imageUrl = absolutize(entry.imageUrl, baseUrl); // DiscordがこのURLを取りに来る
+  const absImageUrl = absolutize(entry.imageUrl, baseUrl);
+  const safe = (s: string, max: number) =>
+  (s ?? "").slice(0, max);
 
   const payload = {
-    content: `${contributor.name} の投稿`,
-    allowed_mentions: { parse: [] as string[] }, // 誤メンション防止
-    embeds: [
-      {
-        title: entry.title,      // 太字表示
-        url: detailUrl,          // タイトルをクリックで詳細へ
-        description: entry.episode,
-        image: imageUrl ? { url: imageUrl } : undefined,
-      },
-    ],
-  };
+  content: `${contributor.name} の投稿`,
+  allowed_mentions: { parse: [] as string[] },
+  embeds: [
+    {
+      title: safe(entry.title, 256),
+      url: detailUrl,
+      description: safe(entry.episode, 4096),
+      ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
+    },
+  ],
+};
 
   try {
     const res = await fetch(webhook, {
@@ -75,12 +80,13 @@ async function notifyDiscord(
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error(`[discord] webhook error: ${res.status} ${res.statusText} ${text}`);
+      console.error(`[discord] webhook error: ${res.status} ${res.statusText}`, text);
     }
   } catch (err) {
     console.error("[discord] webhook failed:", err);
   }
 }
+
 
 // GET /api/entries  一覧
 export async function GET() {
