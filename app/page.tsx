@@ -20,13 +20,12 @@ type Entry = {
   createdAt?: string | Date;
 };
 
-const FALLBACK_IMG =
-  "https://placehold.co/800x450?text=No+Image";
+const FALLBACK_IMG = "https://placehold.co/800x450?text=No+Image";
 
 const FIXED_TAGS: string[] = [
   "ゲーム機",
   "アニメ",
-  "漫画",     // 追加
+  "漫画",
   "おもちゃ",
   "お菓子",
   "文房具",
@@ -34,17 +33,45 @@ const FIXED_TAGS: string[] = [
   "ファッション",
   "雑誌",
   "家電",
-  "スポーツ", // 追加
-  "⚽️",       // 追加
-  "⚾️",       // 追加
+  "スポーツ",
+  "⚽️",
+  "⚾️",
 ];
 
-// 小さめピル（未使用でも残してOK）
+// 小さめピル
 function Pill({ children }: { children: React.ReactNode }) {
   return (
     <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 border border-neutral-200">
       {children}
     </span>
+  );
+}
+
+// スケルトンカード（ローディング用）
+function SkeletonCard() {
+  return (
+    <article className="sticker rt overflow-hidden animate-pulse">
+      <div className="aspect-[16/9] w-full bg-neutral-200/70" />
+      <div className="p-4 grid gap-3">
+        <div className="h-5 w-2/3 bg-neutral-200 rounded" />
+        <div className="space-y-2">
+          <div className="h-4 w-full bg-neutral-200 rounded" />
+          <div className="h-4 w-5/6 bg-neutral-200 rounded" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-6 w-14 bg-neutral-200 rounded-full" />
+          <div className="h-6 w-12 bg-neutral-200 rounded-full" />
+          <div className="h-6 w-16 bg-neutral-200 rounded-full" />
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-neutral-200" />
+            <div className="h-4 w-24 bg-neutral-200 rounded" />
+          </div>
+          <div className="h-8 w-16 bg-neutral-200 rounded-full" />
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -70,24 +97,22 @@ function HeaderHero({
           </p>
         </div>
 
-        {/* HeaderHero 内ボタン行 */}
         <div className="flex items-center gap-3">
-  <button
-    onClick={() => {
-      if (user) {
-        onOpenCreate();
-      } else {
-        if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
-          signIn("discord");
-        }
-      }
-    }}
-    className="btn-retro"
-  >
-    登録する
-  </button>
-  {/* 図鑑を共有ボタンは削除のまま */}
-</div>
+          <button
+            onClick={() => {
+              if (user) {
+                onOpenCreate();
+              } else {
+                if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+                  signIn("discord");
+                }
+              }
+            }}
+            className="btn-retro"
+          >
+            登録する
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -446,9 +471,11 @@ function EntryCard({
               {liked && popping && <span className="burst">✦</span>}
             </button>
 
-            {showLikers && <div className="absolute right-0 top-[calc(100%+6px)] z-20">
-              <LikesPopover users={likers} />
-            </div>}
+            {showLikers && (
+              <div className="absolute right-0 top-[calc(100%+6px)] z-20">
+                <LikesPopover users={likers} />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -539,15 +566,38 @@ export default function Page() {
   const [selectedUser, setSelectedUser] = useState("");
   const [sort, setSort] = useState("new");
   const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // 既存表示ありの再取得
 
-  // 初回ロード
+  // キャッシュキー
+  const CACHE_KEY = "entriesCache:v1";
+
+  // 初回ロード：キャッシュ→即表示、その後最新取得
   useEffect(() => {
+    let didCancel = false;
+
+    // 1) sessionStorage から即時表示
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw) as Entry[];
+        if (!didCancel && Array.isArray(arr) && arr.length) {
+          setEntries(arr);
+          setLoading(false);
+        }
+      }
+    } catch {}
+
+    // 2) サーバから取得（タイムアウト＋Abort）
     (async () => {
+      const ac = new AbortController();
+      const to = window.setTimeout(() => ac.abort(), 8000); // 8秒タイムアウト
       try {
-        const res = await fetch("/api/entries", { cache: "no-store" });
+        setRefreshing(!loading); // すでに何か表示があれば“更新中”扱い
+        const res = await fetch("/api/entries", { cache: "no-store", signal: ac.signal });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.entries)) {
+          if (!didCancel && Array.isArray(data.entries)) {
             const normalized = (data.entries as any[]).map((d) => ({
               ...d,
               tags: Array.isArray(d.tags)
@@ -555,22 +605,42 @@ export default function Page() {
                 : typeof d.tags === "string"
                 ? d.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
                 : [],
-              contributor: d.contributor ?? { id: "guest", name: "guest", avatarUrl: "https://i.pravatar.cc/100?img=1" },
+              contributor:
+                d.contributor ?? { id: "guest", name: "guest", avatarUrl: "https://i.pravatar.cc/100?img=1" },
             })) as Entry[];
             setEntries(normalized);
+            try {
+              sessionStorage.setItem(CACHE_KEY, JSON.stringify(normalized));
+            } catch {}
           }
         }
+      } catch {
+        // ネットワークエラー → キャッシュが無ければ“0件とスケルトン”のまま
       } finally {
-        setHydrated(true);
+        window.clearTimeout(to);
+        if (!didCancel) {
+          setLoading(false);
+          setRefreshing(false);
+          setHydrated(true);
+        }
       }
     })();
+
+    return () => {
+      didCancel = true;
+    };
   }, []);
 
-  const allTags = useMemo(() => Array.from(new Set(entries.flatMap((e) => e.tags)) || []), [entries]);
+  const allTags = useMemo(
+    () => Array.from(new Set(entries.flatMap((e) => e.tags)) || []),
+    [entries]
+  );
 
   const contributors = useMemo(() => {
     const map = new Map<string, Contributor>();
-    entries.forEach((e) => map.set(e.contributor.id, e.contributor));
+    entries.forEach((e) => {
+      if (e?.contributor?.id) map.set(e.contributor.id, e.contributor);
+    });
     return Array.from(map.values());
   }, [entries]);
 
@@ -595,13 +665,15 @@ export default function Page() {
     return list;
   }, [entries, query, selectedTags, selectedUser, sort]);
 
-  // いいねトグル：サーバーの like/unlike に合わせて安定更新
+  // いいねトグル：API 実装（/api/entries/[id] PATCH）に合わせる
   const onToggleLike = async (id: string) => {
     const key = `liked:${id}`;
     const wasLiked = typeof window !== "undefined" ? !!localStorage.getItem(key) : false;
 
     // 楽観反映
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? -1 : 1)) } : e)));
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? -1 : 1)) } : e))
+    );
     if (typeof window !== "undefined") {
       if (wasLiked) localStorage.removeItem(key);
       else localStorage.setItem(key, "1");
@@ -609,17 +681,19 @@ export default function Page() {
     if (!hydrated) return;
 
     try {
-      const res = await fetch(`/api/entries/${id}/like`, {
+      const res = await fetch(`/api/entries/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: wasLiked ? "unlike" : "like" }),
+        body: JSON.stringify({ op: wasLiked ? "unlike" : "like" }),
       });
       if (!res.ok) throw new Error("toggle failed");
-      const data = await res.json(); // { likes, userLiked, users? }
+      const data = await res.json(); // { id, likes }
       setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, likes: data.likes } : e)));
     } catch {
       // ロールバック
-      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? 1 : -1)) } : e)));
+      setEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? 1 : -1)) } : e))
+      );
       if (typeof window !== "undefined") {
         if (wasLiked) localStorage.setItem(key, "1");
         else localStorage.removeItem(key);
@@ -668,6 +742,10 @@ export default function Page() {
         createdAt: createdRaw.createdAt ?? new Date().toISOString(),
       };
       setEntries((prev) => [created, ...prev.filter((e) => e.id !== optimistic.id)]);
+      // キャッシュも更新
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify([created, ...entries]));
+      } catch {}
     } catch {
       setEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
       alert("投稿に失敗しました。時間をおいて再度お試しください。");
@@ -700,9 +778,23 @@ export default function Page() {
         count={filtered.length}
       />
 
+      {/* 更新中の薄いインジケータ（既に何か表示がある時のみ） */}
+      {refreshing && (
+        <div className="container-page pt-2 pb-0">
+          <div className="text-xs text-neutral-500">最新の投稿を取得しています…</div>
+        </div>
+      )}
+
       {/* 1カラムのフィード */}
       <section className="container-page pb-16 pt-4 space-y-8">
-        {filtered.length === 0 ? (
+        {loading && entries.length === 0 ? (
+          // ローディング：スケルトンを数枚
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : filtered.length === 0 ? (
           <div className="text-center text-neutral-600 py-16">
             条件に一致する思い出がありません。条件をゆるめてみてください。
           </div>
@@ -723,20 +815,20 @@ export default function Page() {
 
       {/* 右下の追従＋ボタン（PC/SP 共通） */}
       <button
-  aria-label="新しい思い出を登録"
-  onClick={() => {
-    if (user) {
-      setOpenModal(true);
-    } else {
-      if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
-        signIn("discord");
-      }
-    }
-  }}
-  className="fab"
->
-  ＋
-</button>
+        aria-label="新しい思い出を登録"
+        onClick={() => {
+          if (user) {
+            setOpenModal(true);
+          } else {
+            if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+              signIn("discord");
+            }
+          }
+        }}
+        className="fab"
+      >
+        ＋
+      </button>
 
       {/* 作成モーダル */}
       <CreateModal open={openModal} onClose={() => setOpenModal(false)} onCreate={onCreate} />

@@ -72,7 +72,7 @@ export async function generateMetadata(
     };
   }
 
-  const base = await resolveBaseUrl();
+  const base = await resolveBaseUrl(); // ← await を追加
   const title = `${row.title} | レトロ図鑑`;
   const description = row.episode?.slice(0, 120) || "平成レトロの思い出を集めるみんなの図鑑。";
   const image = absolutize((row as any).imageUrl, base) || FALLBACK_IMG;
@@ -150,7 +150,6 @@ export default async function EntryPage({
         <div className="p-5 grid gap-3">
           <h1 className="text-2xl font-bold tracking-tight">{e.title}</h1>
 
-          {/* ← p ではなく div にしてブロック要素を許容 */}
           <div className="text-neutral-700">
             <Expandable lines={3}>{e.episode}</Expandable>
           </div>
