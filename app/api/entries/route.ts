@@ -111,7 +111,6 @@ function mapDiscordMessageToEntry(m: any) {
 export async function GET() {
   try {
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
-      // Bot 設定が無い場合は（暫定で）DBから返す
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
         select: {
@@ -122,7 +121,6 @@ export async function GET() {
       return NextResponse.json({ entries: rows }, { status: 200 });
     }
 
-    // Discord のチャンネルから最新50件を取る
     const r = await fetch(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
       { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }
@@ -134,20 +132,19 @@ export async function GET() {
       return NextResponse.json({ entries: [] }, { status: 200 });
     }
 
-    const json = await r.json() as any[];
-const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+    const msgs = await r.json() as any[]; // ← json() は1回だけ！
 
-const isOurs = (m: any) => {
-  const e = m.embeds?.[0];
-  const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-  const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
-  const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
-  return hasFooter || urlOk || contentOk;
-};
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+    const isOurs = (m: any) => {
+      const e = m.embeds?.[0];
+      const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
+      const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+      const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
+      return hasFooter || urlOk || contentOk;
+    };
 
-const mine = json.filter(isOurs).map(mapDiscordMessageToEntry);
-return NextResponse.json({ entries: mine }, { status: 200 });
-
+    const mine = msgs.filter(isOurs).map(mapDiscordMessageToEntry);
+    return NextResponse.json({ entries: mine }, { status: 200 });
   } catch (e) {
     console.error("GET /api/entries failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
