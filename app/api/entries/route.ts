@@ -99,17 +99,32 @@ async function notifyDiscord(
   }
 }
 
+function getWebhookIdFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/\/webhooks\/(\d+)\//);
+  return m ? m[1] : null;
+}
+
+const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
+
+
 // Discord メッセージ → エントリ整形
 function mapDiscordMessageToEntry(m: any) {
   const e = m.embeds?.[0] ?? {};
-  const name = typeof m.content === "string" ? m.content.replace(/ の投稿$/, "") : "unknown";
+  // 添付の先頭を画像候補に
+  const attachUrl = Array.isArray(m.attachments) && m.attachments[0]?.url ? m.attachments[0].url : "";
+
+  const name = typeof m.content === "string" && m.content.endsWith(" の投稿")
+    ? m.content.replace(/ の投稿$/, "")
+    : "unknown";
+
   return {
     id: m.id,
     title: e.title ?? "(無題)",
-    episode: e.description ?? "",
+    episode: e.description ?? "",          // embed ない場合は空のまま
     age: null as number | null,
     tags: "",
-    imageUrl: e.image?.url ?? "",
+    imageUrl: (e.image?.url ?? attachUrl ?? ""),
     contributor: {
       id: "discord",
       name,
@@ -168,16 +183,16 @@ export async function GET(req: NextRequest) {
 
     // フィルタ
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-    const isOurs = (m: any) => {
-      const e = m.embeds?.[0];
-      const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-      const urlOk =
-        typeof e?.url === "string" &&
-        appUrl &&
-        e.url.startsWith(`${appUrl}/entries/`);
-      const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
-      return hasFooter || urlOk || contentOk;
-    };
+const isOurs = (m: any) => {
+  const e = m.embeds?.[0];
+  const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
+  const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+  const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
+  const webhookOk = WEBHOOK_ID && m.webhook_id === WEBHOOK_ID;
+  // どれか1つでもOK
+  return !!(hasFooter || urlOk || contentOk || webhookOk);
+};
+
 
     let mine = msgs.filter(isOurs);
 
