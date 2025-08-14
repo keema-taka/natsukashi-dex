@@ -13,7 +13,6 @@ export async function GET(
     if (!e) return NextResponse.json({ error: "not found" }, { status: 404 });
     return NextResponse.json({ entry: e }, { status: 200 });
   } catch (e) {
-    console.error("GET /api/entries/[id] (discord) failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }

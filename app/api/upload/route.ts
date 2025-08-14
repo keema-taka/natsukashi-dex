@@ -38,7 +38,6 @@ export async function POST(req: Request) {
     // フロントはこの URL を imageUrl にセットすればOK
     return NextResponse.json({ url }, { status: 201 });
   } catch (e) {
-    console.error("upload->discord failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }

@@ -25,7 +25,6 @@ export async function GET() {
     const entries = await fetchEntriesViaBot(50);
     return NextResponse.json({ entries }, { status: 200 });
   } catch (e) {
-    console.error("GET /api/entries (discord) failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
@@ -55,7 +54,6 @@ export async function POST(req: NextRequest) {
     if (!entry) return NextResponse.json({ error: "failed" }, { status: 500 });
     return NextResponse.json({ entry }, { status: 201 });
   } catch (e) {
-    console.error("POST /api/entries (discord) failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
