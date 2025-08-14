@@ -123,8 +123,11 @@ function mapDiscordMessageToEntry(m: any) {
 }
 
 // ---- GET: 一覧（Discord から復元） -----------------
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // デバッグモードの有無
+    const debug = req.nextUrl.searchParams.get("debug");
+
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
@@ -133,9 +136,11 @@ export async function GET() {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
+      if (debug === "1") console.log("[entries][debug] prisma.count =", rows.length);
       return NextResponse.json({ entries: rows }, { status: 200 });
     }
 
+    // Discordから取得
     const r = await fetch(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
       { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` } }
@@ -147,24 +152,57 @@ export async function GET() {
       return NextResponse.json({ entries: [] }, { status: 200 });
     }
 
-    const msgs = await r.json() as any[]; // ← json() は1回だけ！
+    const msgs = (await r.json()) as any[];
+    if (debug === "1") {
+      console.log("[entries][debug] fetched msgs =", msgs.length);
+      // 先頭3件だけサンプル表示
+      for (const m of msgs.slice(0, 3)) {
+        console.log("[entries][debug] sample", {
+          id: m.id,
+          content: m.content,
+          hasFooter: (m.embeds?.[0]?.footer?.text ?? "") === "natsukashi-dex",
+          url: m.embeds?.[0]?.url,
+        });
+      }
+    }
 
+    // フィルタ
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
     const isOurs = (m: any) => {
       const e = m.embeds?.[0];
       const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-      const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+      const urlOk =
+        typeof e?.url === "string" &&
+        appUrl &&
+        e.url.startsWith(`${appUrl}/entries/`);
       const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
       return hasFooter || urlOk || contentOk;
     };
 
-    const mine = msgs.filter(isOurs).map(mapDiscordMessageToEntry);
-    return NextResponse.json({ entries: mine }, { status: 200 });
+    let mine = msgs.filter(isOurs);
+
+    // もし全滅したら、URLチェックを緩和（環境変数未設定などの保険）
+    if (mine.length === 0) {
+      if (debug === "1") console.warn("[entries][debug] filter hit = 0; relax URL check");
+      const relax = (m: any) => {
+        const e = m.embeds?.[0];
+        const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
+        const contentOk = typeof m.content === "string" && / の投稿$/.test(m.content);
+        return hasFooter || contentOk;
+      };
+      mine = msgs.filter(relax);
+    }
+
+    if (debug === "1") console.log("[entries][debug] filtered =", mine.length);
+
+    const entries = mine.map(mapDiscordMessageToEntry);
+    return NextResponse.json({ entries }, { status: 200 });
   } catch (e) {
     console.error("GET /api/entries failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
+
 
 // ---- POST: 作成（Discord へ投稿 → message.id を id に採用） ----
 export async function POST(req: NextRequest) {
