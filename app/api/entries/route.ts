@@ -41,45 +41,60 @@ function absolutize(url: string | null | undefined, base: string): string | unde
 
 // ---- Discord 連携ユーティリティ -----------------
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
-const DISCORD_BOT_TOKEN   = process.env.DISCORD_BOT_TOKEN;   // ← 生のトークン文字列（先頭に「Bot 」は付けない）
-const DISCORD_CHANNEL_ID  = process.env.DISCORD_CHANNEL_ID;  // 投稿を流すチャンネルID
+const DISCORD_BOT_TOKEN   = process.env.DISCORD_BOT_TOKEN;
+const DISCORD_CHANNEL_ID  = process.env.DISCORD_CHANNEL_ID;
 
-// Webhook: JSON 1回だけ（添付なし）
-async function notifyDiscord(baseUrl: string, entry: {
-  id: string; title: string; episode: string; imageUrl?: string | null;
-}, contributor: Contributor) {
-  if (!DISCORD_WEBHOOK_URL) return;
+function clamp(str: string, max: number) {
+  return (str ?? "").slice(0, max);
+}
 
-  const detailUrl = `${baseUrl}/entries/${entry.id}`;
-  const absImageUrl = absolutize(entry.imageUrl, baseUrl);
-  const safe = (s: string, max: number) => (s ?? "").slice(0, max);
+/** Webhook: JSON 1回だけ（添付なし）— embed を必ず付ける */
+async function notifyDiscord(
+  baseUrl: string,
+  entry: { id: string; title: string; episode: string; imageUrl?: string | null },
+  contributor: { id: string; name: string; avatarUrl: string }
+) {
+  if (!DISCORD_WEBHOOK_URL) return null;
 
-const payload = {
-  content: `${contributor.name} の投稿`,
-  allowed_mentions: { parse: [] as string[] },
-  embeds: [
-    {
-      title: safe(entry.title, 256),
-      url: detailUrl,
-      description: safe(entry.episode, 4096),
-      ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
-      footer: { text: "natsukashi-dex" },   // ★ 目印を復活
-    },
-  ],
-};
+  const detailUrl = `${baseUrl.replace(/\/+$/,"")}/entries/${entry.id}`;
+  const absImageUrl =
+    entry.imageUrl && /^https?:\/\//i.test(entry.imageUrl)
+      ? entry.imageUrl
+      : entry.imageUrl
+      ? `${baseUrl.replace(/\/+$/,"")}${entry.imageUrl.startsWith("/") ? "" : "/"}${entry.imageUrl}`
+      : null;
 
-  const res = await fetch(`${DISCORD_WEBHOOK_URL}?wait=true`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  const embed = {
+    type: "rich" as const,
+    title: clamp(entry.title, 256),
+    url: detailUrl,
+    description: clamp(entry.episode, 4096),
+    ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
+    footer: { text: "natsukashi-dex" }, // ← フィルタ用の目印
+  };
 
-  // wait=true の場合は作成メッセージ JSON が返る
-  if (res.ok) {
-    return await res.json(); // { id, embeds, ... }
-  } else {
-    const text = await res.text().catch(() => "");
-    console.error(`[discord] webhook error: ${res.status} ${res.statusText}`, text);
+  const payload = {
+    // 空でもOKだが、見落とし防止で 1 文字入れておく
+    content: `${contributor.name} の投稿`,
+    allowed_mentions: { parse: [] as string[] },
+    embeds: [embed],
+  };
+
+  try {
+    const res = await fetch(`${DISCORD_WEBHOOK_URL}?wait=true`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[discord] webhook error: ${res.status} ${res.statusText}`, text);
+      return null;
+    }
+    return await res.json(); // { id, ... }
+  } catch (err) {
+    console.error("[discord] webhook failed:", err);
     return null;
   }
 }
