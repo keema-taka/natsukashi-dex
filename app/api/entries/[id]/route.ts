@@ -24,7 +24,7 @@ function mapDiscordMessageToEntry(m: any) {
         : "https://i.pravatar.cc/100?img=1",
     },
     likes: 0,
-    createdAt: m.timestamp,
+    createdAt: new Date(m.timestamp),
   };
 }
 
@@ -52,11 +52,17 @@ export async function GET(
     }
 
     const json = await r.json();
-    // 自アプリ由来の確認（footer.text）
-    const embed = json.embeds?.[0];
-    if ((embed?.footer?.text ?? "") !== "natsukashi-dex") {
-      return NextResponse.json({ error: "not found" }, { status: 404 });
-    }
+   // fetch して json を得た後の検査部をこれに
+const e = json.embeds?.[0];
+const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+const isOurs =
+  (e?.footer?.text ?? "") === "natsukashi-dex" ||
+  (typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`)) ||
+  (typeof json.content === "string" && / の投稿$/.test(json.content));
+
+if (!isOurs) {
+  return NextResponse.json({ error: "not found" }, { status: 404 });
+}
 
     const entry = mapDiscordMessageToEntry(json);
     return NextResponse.json({ entry }, { status: 200 });
