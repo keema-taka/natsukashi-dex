@@ -208,48 +208,40 @@ export async function GET(req: NextRequest) {
     }
 
     const msgs = (await r.json()) as any[];
-    if (debug === "1") {
-      console.log("[entries][debug] fetched msgs =", msgs.length);
-      for (const m of msgs.slice(0, 3)) {
-        console.log("[entries][debug] sample", {
-          id: m.id,
-          content: m.content,
-          hasFooter: (m.embeds?.[0]?.footer?.text ?? "") === "natsukashi-dex",
-          url: m.embeds?.[0]?.url,
-        });
-      }
-    }
 
-    // フィルタ（どれか1つでも当たれば採用）
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-    const isOurs = (m: any) => {
+  // ★ ここを書き換え
+  const appUrl  = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+  const marker  = "[natsukashi-dex]";
+  const webhookId = WEBHOOK_ID; // 既存のまま
+
+  const isOurs = (m: any) => {
+    const e = m.embeds?.[0];
+    const hasFooter   = (e?.footer?.text ?? "") === "natsukashi-dex";
+    const urlOk       = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
+    const contentMark = typeof m.content === "string" && m.content.includes(marker);
+
+    // 自分の webhook の投稿 かつ 目印がある（footer or marker or url）
+    const fromMyWebhook = webhookId && String(m.webhook_id) === webhookId;
+
+    return !!(fromMyWebhook && (hasFooter || contentMark || urlOk));
+  };
+
+  let mine = msgs.filter(isOurs);
+
+  // 全滅時のセーフティ（既存どおりでOK）
+  if (mine.length === 0) {
+    const relax = (m: any) => {
       const e = m.embeds?.[0];
       const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-      const urlOk     = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
-      const contentOk = typeof m.content === "string" && (m.content.includes(MARKER) || / の投稿$/.test(m.content));
-      const webhookOk = WEBHOOK_ID && String(m.webhook_id) === WEBHOOK_ID; // Webhook 経由
-      return !!(hasFooter || urlOk || contentOk || webhookOk);
+      const contentOk = typeof m.content === "string" && m.content.includes(marker);
+      return hasFooter || contentOk;
     };
+    mine = msgs.filter(relax);
+  }
 
-    let mine = msgs.filter(isOurs);
-
-    // 全滅時のセーフティ（URLチェックを緩和）
-    if (mine.length === 0) {
-      if (debug === "1") console.warn("[entries][debug] filter hit = 0; relax URL check");
-      const relax = (m: any) => {
-        const e = m.embeds?.[0];
-        const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-        const contentOk = typeof m.content === "string" && (m.content.includes(MARKER) || / の投稿$/.test(m.content));
-        return hasFooter || contentOk;
-      };
-      mine = msgs.filter(relax);
-    }
-
-    if (debug === "1") console.log("[entries][debug] filtered =", mine.length);
-
-    const entries = mine.map(mapDiscordMessageToEntry);
-    return NextResponse.json({ entries }, { status: 200 });
-  } catch (e) {
+  const entries = mine.map(mapDiscordMessageToEntry);
+  return NextResponse.json({ entries }, { status: 200 });
+} catch (e) {
     console.error("GET /api/entries failed", e);
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
