@@ -84,8 +84,6 @@ async function fetchWebhookChannelId(): Promise<string | null> {
     return null;
   }
 }
-// ← webhook_id の照合は「投稿保存チャンネル」の Webhook を使う
-const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 2000) {
   const ac = new AbortController();
@@ -220,6 +218,8 @@ function getWebhookIdFromUrl(url?: string | null): string | null {
   const m = url.match(/\/webhooks\/(\d+)\//);
   return m ? m[1] : null;
 }
+// ★ これを追加（投稿保存用 Webhook を参照）
+const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
 
 /** content からフォールバックで復元 */
 function parseFromContent(content: string) {

@@ -40,7 +40,7 @@ function toContributor(v: any): Contributor {
 export default function EntriesList(props: {
   query?: string;
   selectedTags?: string[];
-  selectedUserId?: string;
+  selectedUserId?: string;          // ドロップダウン value を受け取る（今回は “名前” を入れる）
   sort?: 'new' | 'likes';
   refreshIntervalMs?: number;
   currentUserId?: string;
@@ -60,19 +60,12 @@ export default function EntriesList(props: {
     onContributors,
   } = props;
 
-  // ★ API URL を fast=1（dev は debug=1 も）
-  const apiUrl =
-    process.env.NODE_ENV === 'production'
-      ? '/api/entries?fast=1'
-      : '/api/entries?fast=1&debug=1';
-
   const { data, error, isLoading, mutate } = useSWR<{ entries: any[] }>(
-    apiUrl,
+    '/api/entries?fast=1',
     fetcher,
     { refreshInterval: refreshIntervalMs }
   );
 
-  // “entries:refresh” で再検証（重複を解消）
   React.useEffect(() => {
     const handler = () => mutate();
     window.addEventListener('entries:refresh', handler);
@@ -81,10 +74,6 @@ export default function EntriesList(props: {
 
   const normalized: Entry[] = useMemo(() => {
     const raw = data?.entries ?? [];
-    // デバッグ: 件数
-    if (typeof window !== 'undefined') {
-      console.debug('[EntriesList] fetched entries:', raw.length);
-    }
     return raw.map((d) => ({
       id: String(d.id),
       title: String(d.title ?? ''),
@@ -98,16 +87,17 @@ export default function EntriesList(props: {
     }));
   }, [data]);
 
-  // タグ & 投稿者一覧を親へ通知
+  // タグ & 投稿者一覧を親へ通知（★ 名前でユニーク化し、value用の id も “名前” にする）
   React.useEffect(() => {
     const tags = Array.from(new Set(normalized.flatMap(e => e.tags))).filter(Boolean);
     onAllTags?.(tags);
 
-    const map = new Map<string, { id: string; name: string; avatarUrl: string }>();
+    const byName = new Map<string, { id: string; name: string; avatarUrl: string }>();
     normalized.forEach(e => {
-      if (e.contributor?.id) map.set(String(e.contributor.id), e.contributor);
+      const name = (e.contributor?.name || '').trim();
+      if (name) byName.set(name, { id: name, name, avatarUrl: e.contributor?.avatarUrl || '' });
     });
-    onContributors?.(Array.from(map.values()));
+    onContributors?.(Array.from(byName.values()));
   }, [normalized, onAllTags, onContributors]);
 
   const filtered = useMemo(() => {
@@ -125,7 +115,10 @@ export default function EntriesList(props: {
       list = list.filter((e) => selectedTags.every((t) => e.tags.includes(t)));
     }
     if (selectedUserId) {
-      list = list.filter((e) => String(e.contributor.id) === String(selectedUserId));
+      list = list.filter((e) =>
+        String(e.contributor.id) === String(selectedUserId) ||
+        e.contributor.name === selectedUserId
+      );
     }
 
     if (sort === 'likes') {
@@ -140,12 +133,10 @@ export default function EntriesList(props: {
     return list;
   }, [normalized, query, selectedTags, selectedUserId, sort]);
 
-  // 件数通知
   React.useEffect(() => {
     onCountChange?.(filtered.length);
   }, [filtered, onCountChange]);
 
-  // 削除（楽観→再検証）
   const optimisticRemove = async (id: string) => {
     await mutate(
       (cur) => {
@@ -188,7 +179,6 @@ export default function EntriesList(props: {
           entry={e}
           currentUserId={currentUserId}
           onDeleted={optimisticRemove}
-          // ★ 誰でも削除できるように Kebab を常時表示へ（EntryCard 側も修正）
           forceKebab
         />
       ))}
