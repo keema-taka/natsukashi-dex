@@ -1,3 +1,4 @@
+// app/components/EntryCard.tsx
 'use client';
 
 import Link from 'next/link';
@@ -30,31 +31,118 @@ function Pill({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** いいねしたユーザー表示用の軽量ポップオーバー */
+function LikesPopover({
+  users,
+}: {
+  users: { userId: string; userName: string; userAvatar?: string | null }[];
+}) {
+  if (!users?.length) {
+    return (
+      <div className="rounded-xl border bg-white shadow-lg p-3 text-xs text-neutral-600">
+        まだ「いいね」した人はいません
+      </div>
+    );
+  }
+  return (
+    <div className="min-w-[220px] max-w-[280px] rounded-xl border bg-white shadow-lg p-3">
+      <div className="text-xs font-medium text-neutral-700 mb-2">
+        いいねしたユーザー
+      </div>
+      <ul className="space-y-2">
+        {users.slice(0, 10).map((u) => (
+          <li key={`${u.userId}`} className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={u.userAvatar || 'https://i.pravatar.cc/100?img=1'}
+              alt={u.userName}
+              className="w-6 h-6 rounded-full object-cover"
+            />
+            <span className="text-xs text-neutral-800 truncate">{u.userName}</span>
+          </li>
+        ))}
+      </ul>
+      {users.length > 10 && (
+        <div className="mt-2 text-[11px] text-neutral-500">
+          ほか {users.length - 10} 名
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EntryCard({
   entry,
-  currentUserId,
+  currentUserId, // 将来用
   onDeleted,
+  forceKebab,     // ★ 追加（使わなくても受け取る）
 }: {
   entry: Entry;
   currentUserId?: string;
   onDeleted?: (id: string) => void;
+  forceKebab?: boolean; // ★ 追加
 }) {
-  const isOwner =
-    currentUserId &&
-    entry.contributor?.id &&
-    String(entry.contributor.id) === String(currentUserId);
-
   const isRealId =
     entry.id && !String(entry.id).startsWith('tmp-') && String(entry.id).length > 12;
 
+  // ---- いいねユーザーのポップオーバー制御 ----
+  const [likers, setLikers] = React.useState<
+    { userId: string; userName: string; userAvatar?: string | null }[]
+  >([]);
+  const [showLikers, setShowLikers] = React.useState(false);
+  const longPressTimer = React.useRef<number | null>(null);
+
+  const fetchLikers = React.useCallback(async () => {
+    if (!isRealId) return;
+    try {
+      const res = await fetch(`/api/entries/${entry.id}/like?limit=20`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLikers(Array.isArray(data?.users) ? data.users : []);
+      }
+    } catch {
+      // 通信失敗は無視（ポップは空表示）
+    }
+  }, [entry.id, isRealId]);
+
+  const onMouseEnterLike = async () => {
+    await fetchLikers();
+    setShowLikers(true);
+  };
+  const onMouseLeaveLike = () => setShowLikers(false);
+
+  const onTouchStartLike = () => {
+    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
+    longPressTimer.current = window.setTimeout(async () => {
+      await fetchLikers();
+      setShowLikers(true);
+    }, 500); // 0.5秒長押しで表示
+  };
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const onTouchEndLike = () => {
+    clearLongPress();
+    // 少し遅らせて閉じる（タップアップ直後の誤タップ防止）
+    window.setTimeout(() => setShowLikers(false), 150);
+  };
+
+  React.useEffect(() => {
+    return () => clearLongPress();
+  }, []);
+
   return (
-    <article className="group relative sticker rt overflow-hidden">
-      {/* 右上メニュー（オーナーのみ） */}
-      {isOwner ? (
-        <div className="absolute right-3 top-3 z-10">
-          <KebabMenu id={entry.id} onDeleted={onDeleted} />
-        </div>
-      ) : null}
+    <article className="group relative sticker rt">
+      {/* 右上メニュー —— ★ 常に表示（誰でも削除可） */}
+      <div className="absolute right-3 top-3 z-10">
+        <KebabMenu id={entry.id} onDeleted={onDeleted} />
+      </div>
 
       {/* 画像 */}
       <div className="aspect-[16/9] w-full overflow-hidden bg-neutral-100 rounded-t-2xl">
@@ -111,7 +199,24 @@ export default function EntryCard({
             </span>
           </div>
 
-          <LikeButton id={entry.id} count={entry.likes} />
+          {/* いいねのラッパ（ここにイベントとポップ） */}
+          <div
+            className="relative"
+            onMouseEnter={onMouseEnterLike}
+            onMouseLeave={onMouseLeaveLike}
+            onTouchStart={onTouchStartLike}
+            onTouchEnd={onTouchEndLike}
+            onTouchCancel={onTouchEndLike}
+          >
+            <LikeButton id={entry.id} count={entry.likes} />
+
+            {showLikers && (
+              // ★ “上” に出す: bottom-full
+              <div className="absolute right-0 bottom-full mb-1.5 z-50">
+                <LikesPopover users={likers} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </article>

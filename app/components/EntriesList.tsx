@@ -44,11 +44,9 @@ export default function EntriesList(props: {
   sort?: 'new' | 'likes';
   refreshIntervalMs?: number;
   currentUserId?: string;
-  onCountChange?: (n: number) => void;                // ← 追加
-  onAllTags?: (tags: string[]) => void;               // ← 追加
-  onContributors?: (users: {                         // ← 追加
-    id: string; name: string; avatarUrl: string;
-  }[]) => void;
+  onCountChange?: (n: number) => void;
+  onAllTags?: (tags: string[]) => void;
+  onContributors?: (users: { id: string; name: string; avatarUrl: string }[]) => void;
 }) {
   const {
     query = '',
@@ -62,17 +60,31 @@ export default function EntriesList(props: {
     onContributors,
   } = props;
 
+  // ★ API URL を fast=1（dev は debug=1 も）
+  const apiUrl =
+    process.env.NODE_ENV === 'production'
+      ? '/api/entries?fast=1'
+      : '/api/entries?fast=1&debug=1';
+
   const { data, error, isLoading, mutate } = useSWR<{ entries: any[] }>(
-    '/api/entries',
+    apiUrl,
     fetcher,
-    {
-    refreshInterval: refreshIntervalMs,
-    revalidateOnFocus: false,
-   }
+    { refreshInterval: refreshIntervalMs }
   );
+
+  // “entries:refresh” で再検証（重複を解消）
+  React.useEffect(() => {
+    const handler = () => mutate();
+    window.addEventListener('entries:refresh', handler);
+    return () => window.removeEventListener('entries:refresh', handler);
+  }, [mutate]);
 
   const normalized: Entry[] = useMemo(() => {
     const raw = data?.entries ?? [];
+    // デバッグ: 件数
+    if (typeof window !== 'undefined') {
+      console.debug('[EntriesList] fetched entries:', raw.length);
+    }
     return raw.map((d) => ({
       id: String(d.id),
       title: String(d.title ?? ''),
@@ -86,7 +98,7 @@ export default function EntriesList(props: {
     }));
   }, [data]);
 
-// ここで一意タグと投稿者一覧を算出してページへ通知
+  // タグ & 投稿者一覧を親へ通知
   React.useEffect(() => {
     const tags = Array.from(new Set(normalized.flatMap(e => e.tags))).filter(Boolean);
     onAllTags?.(tags);
@@ -128,12 +140,12 @@ export default function EntriesList(props: {
     return list;
   }, [normalized, query, selectedTags, selectedUserId, sort]);
 
-// 件数の通知
+  // 件数通知
   React.useEffect(() => {
-  onCountChange?.(filtered.length);
-}, [filtered, onCountChange]);
+    onCountChange?.(filtered.length);
+  }, [filtered, onCountChange]);
 
-  // EntriesList 経由での削除（楽観→再検証）
+  // 削除（楽観→再検証）
   const optimisticRemove = async (id: string) => {
     await mutate(
       (cur) => {
@@ -176,6 +188,8 @@ export default function EntriesList(props: {
           entry={e}
           currentUserId={currentUserId}
           onDeleted={optimisticRemove}
+          // ★ 誰でも削除できるように Kebab を常時表示へ（EntryCard 側も修正）
+          forceKebab
         />
       ))}
     </section>

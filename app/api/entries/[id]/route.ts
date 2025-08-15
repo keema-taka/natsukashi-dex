@@ -105,14 +105,16 @@ function ensureOurs(json: any) {
 }
 
 // ---------- GET: 単一取得 ----------
-export async function GET(_req: Request, ctx: { params: { id: string } }) {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await ctx.params;
+
     if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
       return jsonNoStore({ error: "discord not configured" }, 500);
     }
 
     const r = await fetch(
-      `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages/${ctx.params.id}`,
+      `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages/${id}`,
       { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }, cache: "no-store" }
     );
 
@@ -128,23 +130,23 @@ export async function GET(_req: Request, ctx: { params: { id: string } }) {
 
     const entry = mapDiscordMessageToEntry(json);
 
-// GET 内：DB 側の likes/tags/contributor を上書き補完する箇所
-const row = await prisma.entry.findUnique({
-  where: { id: ctx.params.id },
-  select: { id: true, title: true, episode: true, imageUrl: true, tags: true, likes: true, contributor: true },
-});
+    // DB 側の likes/tags/contributor を上書き補完
+    const row = await prisma.entry.findUnique({
+      where: { id },
+      select: { id: true, title: true, episode: true, imageUrl: true, tags: true, likes: true, contributor: true },
+    });
 
-if (row) {
-  entry.title    = row.title    ?? entry.title;
-  entry.episode  = row.episode  ?? entry.episode;
-  entry.imageUrl = row.imageUrl ?? entry.imageUrl;
-  entry.tags     = row.tags     ?? entry.tags;
-  entry.likes    = typeof row.likes === "number" ? row.likes : entry.likes;
+    if (row) {
+      entry.title    = row.title    ?? entry.title;
+      entry.episode  = row.episode  ?? entry.episode;
+      entry.imageUrl = row.imageUrl ?? entry.imageUrl;
+      entry.tags     = row.tags     ?? entry.tags;
+      entry.likes    = typeof row.likes === "number" ? row.likes : entry.likes;
 
-  // ★ ここを変更：直接代入せずパースしてから
-  const dbC = parseDbContributor(row.contributor);
-  if (dbC) entry.contributor = dbC;
-}
+      const dbC = parseDbContributor(row.contributor);
+      if (dbC) entry.contributor = dbC;
+    }
+
     return jsonNoStore({ entry }, 200);
   } catch (e) {
     console.error("GET /api/entries/[id] failed:", e);
@@ -152,16 +154,17 @@ if (row) {
   }
 }
 
-// ---------- PATCH: いいね増減 ----------
+// ---------- PATCH: いいね増減（※互換用。新実装は /api/entries/[id]/like を使用） ----------
 /**
  * リクエスト例:
  *  { "op": "like" }               -> +1
  *  { "op": "unlike" }             -> -1 (0未満にならない)
  *  { "op": "set", "value": 12 }   -> 絶対値セット（管理ツール用）
  */
-export async function PATCH(req: Request, ctx: { params: { id: string } }) {
+export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const id = ctx.params.id;
+    const { id } = await ctx.params;
+
     const body = await req.json().catch(() => ({} as any));
     const op = String(body?.op || "like");
 
@@ -185,20 +188,19 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
     }
 
     const updated = await prisma.entry.upsert({
-  where: { id },
-  create: {
-    id,
-    title: "(無題)",
-    episode: "",
-    imageUrl: "",
-    // ↓ JSON として保存する意図を明示
-    contributor: { id: "discord", name: "unknown", avatarUrl: "" } as any,
-    likes: nextLikes,
-    tags: "",
-  },
-  update: { likes: nextLikes },
-  select: { id: true, likes: true },
-});
+      where: { id },
+      create: {
+        id,
+        title: "(無題)",
+        episode: "",
+        imageUrl: "",
+        contributor: { id: "discord", name: "unknown", avatarUrl: "" } as any,
+        likes: nextLikes,
+        tags: "",
+      },
+      update: { likes: nextLikes },
+      select: { id: true, likes: true },
+    });
 
     return jsonNoStore({ id: updated.id, likes: updated.likes }, 200);
   } catch (e) {
@@ -208,10 +210,10 @@ export async function PATCH(req: Request, ctx: { params: { id: string } }) {
 }
 
 // ---------- DELETE: Discord & DB 両方削除 ----------
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
-  const id = ctx.params.id;
-
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await ctx.params;
+
     // 1) Discord 側を削除（権限が必要 / 404 は無視して続行）
     let discordOk = true;
     if (DISCORD_BOT_TOKEN && DISCORD_CHANNEL_ID) {
@@ -234,8 +236,6 @@ export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
     }
 
     if (!discordOk) {
-      // Discord 側のみ失敗した場合は 502 などを返しても良いが、
-      // ここではフロントの扱いやすさ重視で 200 にして状態だけ返す
       return jsonNoStore({ ok: false, partial: "db_deleted_only" }, 200);
     }
     return jsonNoStore({ ok: true }, 200);

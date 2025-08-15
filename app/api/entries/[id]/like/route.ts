@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export const runtime = "nodejs"; // Edge だと next-auth が不安定なので Node を明示
+export const runtime = "nodejs";
 
 // ---- いいねしたユーザー一覧（直近 limit 件） ----
 export async function GET(
@@ -67,9 +67,8 @@ export async function PATCH(
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
 
-    // 既存のいいね有無
+    // 既存のいいね有無（複合ユニーク）
     const existing = await prisma.like.findUnique({
-      // prisma/schema.prisma で `@@unique([entryId, userId], name: "entryId_userId")`
       where: { entryId_userId: { entryId: id, userId } },
       select: { id: true },
     });
@@ -79,14 +78,12 @@ export async function PATCH(
       action === "like" ? true : action === "unlike" ? false : !existing;
 
     if (willLike) {
-      // 既に押していれば件数だけ返す
       if (existing) {
         const count = await prisma.like.count({ where: { entryId: id } });
         await prisma.entry.update({ where: { id }, data: { likes: count } });
-        return NextResponse.json({ likes: count, action: "noop" }, { status: 200 });
+        return NextResponse.json({ likes: count, action: "noop", userLiked: true }, { status: 200 });
       }
 
-      // 付与 → 件数同期
       const newCount = await prisma.$transaction(async (tx) => {
         await tx.like.create({
           data: { entryId: id, userId, userName, userAvatar },
@@ -96,9 +93,8 @@ export async function PATCH(
         return count;
       });
 
-      return NextResponse.json({ likes: newCount }, { status: 200 });
+      return NextResponse.json({ likes: newCount, action: "like", userLiked: true }, { status: 200 });
     } else {
-      // 解除（存在しなければ何もしない）→ 件数同期
       const newCount = await prisma.$transaction(async (tx) => {
         if (existing) {
           await tx.like.delete({
@@ -110,7 +106,7 @@ export async function PATCH(
         return count;
       });
 
-      return NextResponse.json({ likes: newCount }, { status: 200 });
+      return NextResponse.json({ likes: newCount, action: "unlike", userLiked: false }, { status: 200 });
     }
   } catch (e) {
     console.error("PATCH /api/entries/[id]/like failed:", e);

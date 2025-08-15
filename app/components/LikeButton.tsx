@@ -36,11 +36,12 @@ export default function LikeButton({ id, count }: { id: string; count: number })
     setTimeout(() => setPopping(false), 380);
 
     try {
-      const res = await fetch(`/api/entries/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: wasLiked ? 'unlike' : 'like' }),
-      });
+      const res = await fetch(`/api/entries/${id}/like`, {
+  method: "PATCH",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: wasLiked ? "unlike" : "like" }),
+});
+const data = await res.json(); // { likes, action, userLiked }
       if (!res.ok) throw new Error('patch failed');
       if (typeof window !== 'undefined') {
         if (wasLiked) localStorage.removeItem(`liked:${id}`);

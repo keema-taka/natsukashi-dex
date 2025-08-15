@@ -22,7 +22,10 @@ model Entry {
 
   // リレーション
   comments    Comment[]
-  likesRel    Like[]                         // いいね実体（誰が押したか）
+  likesRel    Like[]
+
+  @@index([createdAt])
+  @@index([likes])
 }
 
 model Comment {
@@ -32,7 +35,8 @@ model Comment {
   author    Json
   createdAt DateTime @default(now())
 
-  entry     Entry    @relation(fields: [entryId], references: [id])
+  // エントリ削除時にコメントも削除
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@index([entryId, createdAt])
 }
@@ -45,7 +49,8 @@ model Like {
   userAvatar String?
   createdAt  DateTime @default(now())
 
-  entry      Entry    @relation(fields: [entryId], references: [id])
+  // エントリ削除時にLikeも削除
+  entry      Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@unique([entryId, userId])            // 同一ユーザーの重複いいね防止
   @@index([entryId, createdAt])

@@ -1,7 +1,9 @@
+// app/page.tsx
 "use client";
 import React, { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
 import EntriesList from "@/app/components/EntriesList";
+import { mutate as swrMutate } from "swr";
 
 // ————————————————————————————————————————————————
 // types
@@ -54,7 +56,7 @@ function HeaderHero({
 }
 
 // ————————————————————————————————————————————————
-// 投稿モーダル（※あなたの現状のまま流用）
+// 投稿モーダル
 // ————————————————————————————————————————————————
 function CreateModal({ open, onClose, onCreate }: any) {
   const [form, setForm] = useState({ title: "", episode: "", tags: [] as string[], imageUrl: "" });
@@ -233,7 +235,11 @@ function Filters({
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <select value={sort} onChange={(e) => setSort(e.target.value)} className="border rounded-lg px-3 py-2">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as "new" | "likes")}
+          className="border rounded-lg px-3 py-2"
+        >
           <option value="new">新着順</option>
           <option value="likes">いいねが多い順</option>
         </select>
@@ -265,7 +271,7 @@ function Filters({
 }
 
 // ————————————————————————————————————————————————
-// ページ本体（超シンプル化）
+// ページ本体
 // ————————————————————————————————————————————————
 export default function Page() {
   const { data: session } = useSession();
@@ -282,14 +288,14 @@ export default function Page() {
   const [query, setQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState("");
-  const [sort, setSort] = useState("new");
+  const [sort, setSort] = useState<"new" | "likes">("new"); // ★ 型を固定（TS2322解消）
 
   // EntriesList から受け取る情報
-  const [allTags, setAllTags] = useState<string[]>([]);
-  const [contributors, setContributors] = useState<Contributor[]>([]);
-  const [count, setCount] = useState(0);
+  const [allTagsFromList, setAllTagsFromList] = useState<string[]>([]);
+  const [contributorsFromList, setContributorsFromList] = useState<Contributor[]>([]);
+  const [visibleCount, setVisibleCount] = useState(0);
 
-  // 投稿作成（以前のロジックをそのまま利用）
+  // 投稿作成
   const onCreate = async (payload: any) => {
     const candidate = {
       ...payload,
@@ -302,7 +308,10 @@ export default function Page() {
         body: JSON.stringify(candidate),
       });
       if (!res.ok) throw new Error("failed");
-      // 成功したら EntriesList 側の SWR が自動で再検証してくれるので、ここでは何もしない
+
+      // 即時反映：SWR へ再検証依頼（保険として両方）
+      window.dispatchEvent(new CustomEvent("entries:refresh"));
+      swrMutate("/api/entries");
     } catch {
       alert("投稿に失敗しました。時間をおいて再度お試しください。");
     }
@@ -315,12 +324,12 @@ export default function Page() {
 
       {/* フィルタ（件数/タグ/投稿者は EntriesList から渡される） */}
       <Filters
-        allTags={allTags}
+        allTags={allTagsFromList}
         selectedTags={selectedTags}
         setSelectedTags={setSelectedTags}
         query={query}
         setQuery={setQuery}
-        contributors={contributors}
+        contributors={contributorsFromList}
         selectedUser={selectedUser}
         setSelectedUser={setSelectedUser}
         sort={sort}
@@ -331,7 +340,7 @@ export default function Page() {
           setSelectedUser("");
           setSort("new");
         }}
-        count={count}
+        count={visibleCount}
       />
 
       {/* 一覧（取得・フィルタ・並び替え・削除・再検証） */}
@@ -339,12 +348,12 @@ export default function Page() {
         query={query}
         selectedTags={selectedTags}
         selectedUserId={selectedUser}
-        sort={sort as "new" | "likes"}
+        sort={sort}
         refreshIntervalMs={0}
         currentUserId={user?.id}
-        onCountChange={setCount}
-        onAllTags={setAllTags}
-        onContributors={setContributors}
+        onAllTags={setAllTagsFromList}
+        onContributors={setContributorsFromList}
+        onCountChange={setVisibleCount}
       />
 
       {/* 右下＋ボタン */}
