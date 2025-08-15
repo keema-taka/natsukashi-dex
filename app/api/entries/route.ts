@@ -84,6 +84,8 @@ async function fetchWebhookChannelId(): Promise<string | null> {
     return null;
   }
 }
+// ← webhook_id の照合は「投稿保存チャンネル」の Webhook を使う
+const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 2000) {
   const ac = new AbortController();
@@ -116,13 +118,9 @@ async function postToDiscordMain(
   const safe = (s: string | null | undefined, n: number) => String(s ?? "").slice(0, n);
 
   const payload = {
-    // Bot 表示（固定）
     username: "natsukashi-bot",
     avatar_url: "https://i.imgur.com/3G4GkFv.png",
-
-    // 目印（フィルタ用）だけ軽く入れておく
     content: `${MARKER} ${contributor.name} の投稿`,
-
     embeds: [
       {
         type: "rich" as const,
@@ -177,24 +175,16 @@ async function notifyDiscordToNotifyChannel(
   const safe = (s: string | null | undefined, n: number) => String(s ?? "").slice(0, n);
 
   const payload = {
-    // 通知用の見た目（任意に調整OK）
     username: "図鑑登録通知くん",
     avatar_url:
       "https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/Keizo_Obuchi_cropped_Keizo_Obuchi_19890107.jpg/250px-Keizo_Obuchi_cropped_Keizo_Obuchi_19890107.jpg",
-
-    // 余計な重複を避けるため content は空（＝埋め込みのみ表示）
     content: "",
     embeds: [
       {
         type: "rich" as const,
-        // タイトル（クリックで詳細へ）
         title: safe(entry.title, 256) || "(無題)",
         url: detailUrl,
-
-        // 本文
         description: safe(entry.episode, 4096),
-
-        // 画像（あれば表示）
         ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
       },
     ],
@@ -212,14 +202,11 @@ async function notifyDiscordToNotifyChannel(
   }
 }
 
-
 function getWebhookIdFromUrl(url?: string | null): string | null {
   if (!url) return null;
   const m = url.match(/\/webhooks\/(\d+)\//);
   return m ? m[1] : null;
 }
-// ★ これを追加（投稿保存用 Webhook を参照）
-const WEBHOOK_ID = getWebhookIdFromUrl(DISCORD_WEBHOOK_URL);
 
 /** content からフォールバックで復元 */
 function parseFromContent(content: string) {
@@ -286,6 +273,19 @@ function jsonNoStore(body: any, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
+/** 配列に commentCount を付与して返す */
+async function withCommentCounts<T extends { id: string }>(list: T[]) {
+  if (!list.length) return list.map((e) => ({ ...e, commentCount: 0 }));
+  const ids = list.map((e) => e.id);
+  const grouped = await prisma.comment.groupBy({
+    by: ["entryId"],
+    _count: { _all: true },
+    where: { entryId: { in: ids } },
+  });
+  const map = new Map(grouped.map((g) => [g.entryId, g._count._all]));
+  return list.map((e) => ({ ...e, commentCount: map.get(e.id) ?? 0 }));
+}
+
 // ---- GET: 一覧
 export async function GET(req: NextRequest) {
   try {
@@ -301,8 +301,9 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
-      if (debug === "1") console.log("[entries][debug] prisma.count =", rows.length);
-      return jsonNoStore({ entries: rows }, 200);
+      const enriched = await withCommentCounts(rows);
+      if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
+      return jsonNoStore({ entries: enriched }, 200);
     }
 
     const envChan = DISCORD_CHANNEL_ID || "";
@@ -338,7 +339,8 @@ export async function GET(req: NextRequest) {
     if (allMsgs.length === 0) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] using in-memory cache");
-        return jsonNoStore({ entries: lastGoodEntries }, 200);
+        const enrichedCache = await withCommentCounts(lastGoodEntries);
+        return jsonNoStore({ entries: enrichedCache }, 200);
       }
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
@@ -347,9 +349,10 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
+      const enrichedDb = await withCommentCounts(rows);
       if (debug === "1")
-        console.warn("[entries][debug] discord empty -> fallback to DB:", rows.length);
-      return jsonNoStore({ entries: rows }, 200);
+        console.warn("[entries][debug] discord empty -> fallback to DB:", enrichedDb.length);
+      return jsonNoStore({ entries: enrichedDb }, 200);
     }
 
     // 重複除去 + 新しい順
@@ -392,7 +395,8 @@ export async function GET(req: NextRequest) {
     if (mine.length === 0) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] mine=0 -> use cache");
-        return jsonNoStore({ entries: lastGoodEntries }, 200);
+        const enrichedCache = await withCommentCounts(lastGoodEntries);
+        return jsonNoStore({ entries: enrichedCache }, 200);
       }
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
@@ -401,8 +405,9 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
-      if (debug === "1") console.warn("[entries][debug] mine=0 -> use DB:", rows.length);
-      return jsonNoStore({ entries: rows }, 200);
+      const enrichedDb = await withCommentCounts(rows);
+      if (debug === "1") console.warn("[entries][debug] mine=0 -> use DB:", enrichedDb.length);
+      return jsonNoStore({ entries: enrichedDb }, 200);
     }
 
     // 4) 変換
@@ -432,18 +437,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 6) コメント件数を付与
+    const enriched = await withCommentCounts(entries);
+
     // ✅ キャッシュ更新
-    lastGoodEntries = entries;
+    lastGoodEntries = enriched;
     lastGoodAt = Date.now();
 
-    return jsonNoStore({ entries }, 200);
+    return jsonNoStore({ entries: enriched }, 200);
   } catch (e) {
     console.error("GET /api/entries failed", e);
     return jsonNoStore({ error: "failed" }, 500);
   }
 }
 
-// webhook 認証で 1件ずつ取り直し
 // webhook 認証で 1件ずつ取り直し
 async function refillViaWebhook(messages: any[]): Promise<any[]> {
   // ← 投稿保存チャンネルの webhook で取り直す

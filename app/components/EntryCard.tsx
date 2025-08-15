@@ -17,6 +17,7 @@ type Entry = {
   imageUrl: string;
   contributor: Contributor;
   likes: number;
+  commentCount: number;                 // ★ 追加
   createdAt?: string | Date;
   age?: number | null;
 };
@@ -75,12 +76,12 @@ export default function EntryCard({
   entry,
   currentUserId, // 将来用
   onDeleted,
-  forceKebab,     // ★ 追加（使わなくても受け取る）
+  forceKebab,     // 受け取りだけ
 }: {
   entry: Entry;
   currentUserId?: string;
   onDeleted?: (id: string) => void;
-  forceKebab?: boolean; // ★ 追加
+  forceKebab?: boolean;
 }) {
   const isRealId =
     entry.id && !String(entry.id).startsWith('tmp-') && String(entry.id).length > 12;
@@ -104,7 +105,7 @@ export default function EntryCard({
         setLikers(Array.isArray(data?.users) ? data.users : []);
       }
     } catch {
-      // 通信失敗は無視（ポップは空表示）
+      // ignore
     }
   }, [entry.id, isRealId]);
 
@@ -119,7 +120,7 @@ export default function EntryCard({
     longPressTimer.current = window.setTimeout(async () => {
       await fetchLikers();
       setShowLikers(true);
-    }, 500); // 0.5秒長押しで表示
+    }, 500);
   };
   const clearLongPress = () => {
     if (longPressTimer.current) {
@@ -129,7 +130,6 @@ export default function EntryCard({
   };
   const onTouchEndLike = () => {
     clearLongPress();
-    // 少し遅らせて閉じる（タップアップ直後の誤タップ防止）
     window.setTimeout(() => setShowLikers(false), 150);
   };
 
@@ -139,7 +139,7 @@ export default function EntryCard({
 
   return (
     <article className="group relative sticker rt">
-      {/* 右上メニュー —— ★ 常に表示（誰でも削除可） */}
+      {/* 右上メニュー —— 常に表示（誰でも削除可） */}
       <div className="absolute right-3 top-3 z-10">
         <KebabMenu id={entry.id} onDeleted={onDeleted} />
       </div>
@@ -199,23 +199,49 @@ export default function EntryCard({
             </span>
           </div>
 
-          {/* いいねのラッパ（ここにイベントとポップ） */}
-          <div
-            className="relative"
-            onMouseEnter={onMouseEnterLike}
-            onMouseLeave={onMouseLeaveLike}
-            onTouchStart={onTouchStartLike}
-            onTouchEnd={onTouchEndLike}
-            onTouchCancel={onTouchEndLike}
-          >
-            <LikeButton id={entry.id} count={entry.likes} />
+          {/* 右側アクション（コメント数＋いいね） */}
+          <div className="flex items-center gap-4">
+            {/* コメント数（詳細ページへのリンク） */}
+            <Link
+              href={`/entries/${entry.id}`}
+              className="inline-flex items-center text-neutral-700 hover:text-black text-[13px]"
+              title="コメントを見る"
+            >
+              {/* 軽量吹き出しSVG */}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                className="mr-1"
+              >
+                <path
+                  d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1Z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span className="tabular-nums">{entry.commentCount ?? 0}</span>
+            </Link>
 
-            {showLikers && (
-              // ★ “上” に出す: bottom-full
-              <div className="absolute right-0 bottom-full mb-1.5 z-50">
-                <LikesPopover users={likers} />
-              </div>
-            )}
+            {/* いいね（ホバー/長押しでユーザー一覧） */}
+            <div
+              className="relative"
+              onMouseEnter={onMouseEnterLike}
+              onMouseLeave={onMouseLeaveLike}
+              onTouchStart={onTouchStartLike}
+              onTouchEnd={onTouchEndLike}
+              onTouchCancel={onTouchEndLike}
+            >
+              <LikeButton id={entry.id} count={entry.likes} />
+              {showLikers && (
+                <div className="absolute right-0 bottom-full mb-1.5 z-50">
+                  <LikesPopover users={likers} />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

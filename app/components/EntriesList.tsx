@@ -1,3 +1,4 @@
+// app/components/EntriesList.tsx
 'use client';
 
 import useSWR from 'swr';
@@ -14,6 +15,7 @@ type Entry = {
   imageUrl: string;
   contributor: Contributor;
   likes: number;
+  commentCount: number;              // ★ 追加
   createdAt?: string | Date;
   age?: number | null;
 };
@@ -40,7 +42,7 @@ function toContributor(v: any): Contributor {
 export default function EntriesList(props: {
   query?: string;
   selectedTags?: string[];
-  selectedUserId?: string;          // ドロップダウン value を受け取る（今回は “名前” を入れる）
+  selectedUserId?: string;
   sort?: 'new' | 'likes';
   refreshIntervalMs?: number;
   currentUserId?: string;
@@ -61,7 +63,7 @@ export default function EntriesList(props: {
   } = props;
 
   const { data, error, isLoading, mutate } = useSWR<{ entries: any[] }>(
-    '/api/entries?fast=1',
+    "/api/entries?fast=1",
     fetcher,
     { refreshInterval: refreshIntervalMs }
   );
@@ -74,6 +76,9 @@ export default function EntriesList(props: {
 
   const normalized: Entry[] = useMemo(() => {
     const raw = data?.entries ?? [];
+    if (typeof window !== 'undefined') {
+      console.debug('[EntriesList] fetched entries:', raw.length);
+    }
     return raw.map((d) => ({
       id: String(d.id),
       title: String(d.title ?? ''),
@@ -82,22 +87,22 @@ export default function EntriesList(props: {
       imageUrl: String(d.imageUrl ?? ''),
       contributor: toContributor(d.contributor),
       likes: Number.isFinite(d.likes) ? Number(d.likes) : 0,
+      commentCount: Number.isFinite(d.commentCount) ? Number(d.commentCount) : 0,  // ★ 追加
       createdAt: d.createdAt,
       age: (d as any).age ?? null,
     }));
   }, [data]);
 
-  // タグ & 投稿者一覧を親へ通知（★ 名前でユニーク化し、value用の id も “名前” にする）
+  // タグ & 投稿者一覧を親へ通知
   React.useEffect(() => {
     const tags = Array.from(new Set(normalized.flatMap(e => e.tags))).filter(Boolean);
     onAllTags?.(tags);
 
-    const byName = new Map<string, { id: string; name: string; avatarUrl: string }>();
+    const map = new Map<string, { id: string; name: string; avatarUrl: string }>();
     normalized.forEach(e => {
-      const name = (e.contributor?.name || '').trim();
-      if (name) byName.set(name, { id: name, name, avatarUrl: e.contributor?.avatarUrl || '' });
+      if (e.contributor?.id) map.set(String(e.contributor.id), e.contributor);
     });
-    onContributors?.(Array.from(byName.values()));
+    onContributors?.(Array.from(map.values()));
   }, [normalized, onAllTags, onContributors]);
 
   const filtered = useMemo(() => {
@@ -117,7 +122,7 @@ export default function EntriesList(props: {
     if (selectedUserId) {
       list = list.filter((e) =>
         String(e.contributor.id) === String(selectedUserId) ||
-        e.contributor.name === selectedUserId
+        e.contributor.name === selectedUserId // 名前選択になってても通す保険
       );
     }
 
