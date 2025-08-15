@@ -1,82 +1,20 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import React, { useState } from "react";
 import { useSession, signIn } from "next-auth/react";
-import Expandable from "@/app/components/Expandable";
-import LikesPopover from "@/app/components/LikesPopover";
+import EntriesList from "@/app/components/EntriesList";
 
 // ————————————————————————————————————————————————
 // types
 // ————————————————————————————————————————————————
 type Contributor = { id: string; name: string; avatarUrl: string };
-type Entry = {
-  id: string;
-  title: string;
-  episode: string;
-  tags: string[];
-  imageUrl: string;
-  contributor: Contributor;
-  likes: number;
-  createdAt?: string | Date;
-};
-
-const FALLBACK_IMG = "https://placehold.co/800x450?text=No+Image";
 
 const FIXED_TAGS: string[] = [
-  "ゲーム機",
-  "アニメ",
-  "漫画",
-  "おもちゃ",
-  "お菓子",
-  "文房具",
-  "音楽",
-  "ファッション",
-  "雑誌",
-  "家電",
-  "スポーツ",
-  "⚽️",
-  "⚾️",
+  "ゲーム機","アニメ","漫画","おもちゃ","お菓子","文房具",
+  "音楽","ファッション","雑誌","家電","スポーツ","⚽️","⚾️",
 ];
 
-// 小さめピル
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 border border-neutral-200">
-      {children}
-    </span>
-  );
-}
-
-// スケルトンカード（ローディング用）
-function SkeletonCard() {
-  return (
-    <article className="sticker rt overflow-hidden animate-pulse">
-      <div className="aspect-[16/9] w-full bg-neutral-200/70" />
-      <div className="p-4 grid gap-3">
-        <div className="h-5 w-2/3 bg-neutral-200 rounded" />
-        <div className="space-y-2">
-          <div className="h-4 w-full bg-neutral-200 rounded" />
-          <div className="h-4 w-5/6 bg-neutral-200 rounded" />
-        </div>
-        <div className="flex gap-2">
-          <div className="h-6 w-14 bg-neutral-200 rounded-full" />
-          <div className="h-6 w-12 bg-neutral-200 rounded-full" />
-          <div className="h-6 w-16 bg-neutral-200 rounded-full" />
-        </div>
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-neutral-200" />
-            <div className="h-4 w-24 bg-neutral-200 rounded" />
-          </div>
-          <div className="h-8 w-16 bg-neutral-200 rounded-full" />
-        </div>
-      </div>
-    </article>
-  );
-}
-
 // ————————————————————————————————————————————————
-// ヒーロー：タイトル＋ボタン
+// ヒーロー
 // ————————————————————————————————————————————————
 function HeaderHero({
   user,
@@ -100,12 +38,9 @@ function HeaderHero({
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
-              if (user) {
-                onOpenCreate();
-              } else {
-                if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
-                  signIn("discord");
-                }
+              if (user) onOpenCreate();
+              else if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+                signIn("discord");
               }
             }}
             className="btn-retro"
@@ -119,15 +54,10 @@ function HeaderHero({
 }
 
 // ————————————————————————————————————————————————
-// 投稿モーダル
+// 投稿モーダル（※あなたの現状のまま流用）
 // ————————————————————————————————————————————————
 function CreateModal({ open, onClose, onCreate }: any) {
-  const [form, setForm] = useState({
-    title: "",
-    episode: "",
-    tags: [] as string[],
-    imageUrl: "",
-  });
+  const [form, setForm] = useState({ title: "", episode: "", tags: [] as string[], imageUrl: "" });
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<{ title?: string; episode?: string }>({});
 
@@ -153,13 +83,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
       uploadedUrl = url;
     }
 
-    const payload = {
-      title: form.title,
-      episode: form.episode,
-      tags: form.tags,
-      imageUrl: uploadedUrl,
-    };
-
+    const payload = { title: form.title, episode: form.episode, tags: form.tags, imageUrl: uploadedUrl };
     onCreate(payload);
     onClose();
     setForm({ title: "", episode: "", tags: [], imageUrl: "" });
@@ -167,7 +91,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
     setFile(null);
   }, [form, file, onCreate, onClose]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -252,7 +176,12 @@ function CreateModal({ open, onClose, onCreate }: any) {
 
           <label className="grid gap-1">
             <span className="text-sm">画像ファイル（任意・5MBまで）</span>
-            <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full border rounded-lg px-3 py-2 file:mr-3 file:px-3 file:py-2 file:rounded-md file:border file:bg-white file:hover:bg-neutral-50 file:border-neutral-300" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="w-full border rounded-lg px-3 py-2 file:mr-3 file:px-3 file:py-2 file:rounded-md file:border file:bg-white file:hover:bg-neutral-50 file:border-neutral-300"
+            />
             <span className="text-xs text-neutral-500">※ 直接URL入力よりもファイル選択を優先します</span>
           </label>
         </div>
@@ -273,218 +202,7 @@ function CreateModal({ open, onClose, onCreate }: any) {
 }
 
 // ————————————————————————————————————————————————
-// ユーティリティ：クリック外
-// ————————————————————————————————————————————————
-function useClickOutside<T extends HTMLElement>(onOutside: () => void) {
-  const ref = useRef<T | null>(null);
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) onOutside();
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [onOutside]);
-  return ref;
-}
-
-// ————————————————————————————————————————————————
-// カード（ステッカー）
-// ————————————————————————————————————————————————
-function EntryCard({
-  idx,
-  e,
-  onToggleLike,
-  onDelete,
-  hydrated,
-  currentUserId,
-}: {
-  idx: number;
-  e: Entry;
-  onToggleLike: (id: string) => void;
-  onDelete: (id: string) => void;
-  hydrated: boolean;
-  currentUserId?: string;
-}) {
-  const [liked, setLiked] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [popping, setPopping] = useState(false); // いいね演出
-  const [likers, setLikers] = useState<{ userId: string; userName: string; userAvatar?: string | null }[]>([]);
-  const [showLikers, setShowLikers] = useState(false);
-  const longPressTimer = useRef<number | null>(null);
-
-  const isRealId = hydrated && !String(e.id).startsWith("tmp-") && String(e.id).length > 12;
-  const isOwner = currentUserId && e.contributor?.id && String(e.contributor.id) === String(currentUserId);
-
-  const menuRef = useClickOutside<HTMLDivElement>(() => setMenuOpen(false));
-
-  useEffect(() => {
-    if (typeof window !== "undefined") setLiked(!!localStorage.getItem(`liked:${e.id}`));
-  }, [e.id]);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-    };
-  }, []);
-
-  const handleLike = () => {
-    onToggleLike(e.id);
-    setLiked((prev) => !prev);
-    setPopping(true);
-    setTimeout(() => setPopping(false), 420);
-  };
-
-  const Img = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={e.imageUrl || FALLBACK_IMG}
-      alt={e.title}
-      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
-      loading="lazy"
-      onError={(ev) => {
-        const img = ev.currentTarget as HTMLImageElement;
-        if (img.src !== FALLBACK_IMG) img.src = FALLBACK_IMG;
-      }}
-    />
-  );
-
-  const confirmDelete = async () => {
-    setMenuOpen(false);
-    const ok = confirm("この投稿を削除しますか？（元に戻せません）");
-    if (!ok) return;
-    // 楽観削除
-    onDelete(e.id);
-    // サーバ削除
-    try {
-      const res = await fetch(`/api/entries/${e.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
-    } catch {
-      alert("削除に失敗しました。再読み込み後に再度お試しください。");
-    }
-  };
-
-  const fetchLikers = async () => {
-    try {
-      const res = await fetch(`/api/entries/${e.id}/like`, { method: "GET", cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setLikers(data.users || []);
-      }
-    } catch {}
-  };
-
-  const onHoverLike = async () => {
-    await fetchLikers();
-    setShowLikers(true);
-  };
-  const onLeaveLike = () => setShowLikers(false);
-
-  const onTouchStartLike = () => {
-    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-    longPressTimer.current = window.setTimeout(async () => {
-      await fetchLikers();
-      setShowLikers(true);
-    }, 500);
-  };
-  const onTouchEndLike = () => {
-    if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
-    setTimeout(() => setShowLikers(false), 150);
-  };
-
-  return (
-    <article className="group relative sticker rt overflow-hidden">
-      {/* 右上メニュー（オーナーのみ） */}
-      {isOwner ? (
-        <div className="absolute right-3 top-3 z-10" ref={menuRef}>
-          <button
-            className="w-8 h-8 rounded-full bg-white/95 border border-neutral-200 shadow hover:bg-white"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            title="メニュー"
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div role="menu" className="absolute right-0 mt-2 w-36 rounded-xl border bg-white shadow-lg overflow-hidden">
-              <button className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50" onClick={confirmDelete}>
-                削除する
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {/* 画像：上だけ角丸 */}
-      <div className="aspect-[16/9] w-full overflow-hidden bg-neutral-100 rounded-t-2xl">
-        {isRealId ? <Link href={`/entries/${e.id}`}>{Img}</Link> : Img}
-      </div>
-
-      <div className="p-4 grid gap-2">
-        <h3 className="entry-title font-semibold leading-tight">
-          {isRealId ? (
-            <Link href={`/entries/${e.id}`} className="hover:underline">
-              {e.title}
-            </Link>
-          ) : (
-            e.title
-          )}
-        </h3>
-
-        <Expandable lines={2} className="text-sm text-neutral-700">
-          {e.episode}
-        </Expandable>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-600 pt-1">
-          {e.tags?.slice(0, 4).map((t) => (
-            <Pill key={t}>{t}</Pill>
-          ))}
-        </div>
-
-        <div className="mt-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={e.contributor.avatarUrl} alt={e.contributor.name} className="w-6 h-6 rounded-full" />
-            <span className="text-xs text-neutral-600">by {e.contributor.name}</span>
-          </div>
-
-          {/* いいね（相対ラッパでポップ位置を安定化） */}
-          <div className="relative">
-            <button
-              onClick={handleLike}
-              onMouseEnter={onHoverLike}
-              onMouseLeave={onLeaveLike}
-              onTouchStart={onTouchStartLike}
-              onTouchEnd={onTouchEndLike}
-              onTouchCancel={onTouchEndLike}
-              aria-pressed={liked}
-              aria-label={liked ? "いいねを取り消す" : "いいねする"}
-              title={liked ? "いいね解除" : "いいね！"}
-              className={`relative px-2 h-8 inline-flex items-center gap-1.5 rounded-full border text-[13px] select-none
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/60 active:scale-95
-                transition-all duration-150 ease-out shadow-sm hover:shadow-md ${popping ? "like-pop" : ""}
-                ${liked ? "bg-pink-50 border-pink-200 text-pink-600" : "bg-white hover:bg-neutral-50 border-neutral-300 text-neutral-800"}`}
-            >
-              <span className={`text-base leading-none ${liked ? "opacity-100" : "opacity-80"}`}>{liked ? "❤️" : "🤍"}</span>
-              <span className="tabular-nums">{e.likes}</span>
-              {liked && popping && <span className="burst">✦</span>}
-            </button>
-
-            {showLikers && (
-              <div className="absolute right-0 top-[calc(100%+6px)] z-20">
-                <LikesPopover users={likers} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-// ————————————————————————————————————————————————
-// フィルタ
+// フィルタ（件数/タグ/投稿者は EntriesList から受け取る）
 // ————————————————————————————————————————————————
 function Filters({
   allTags,
@@ -547,7 +265,7 @@ function Filters({
 }
 
 // ————————————————————————————————————————————————
-// ページ本体
+// ページ本体（超シンプル化）
 // ————————————————————————————————————————————————
 export default function Page() {
   const { data: session } = useSession();
@@ -559,166 +277,24 @@ export default function Page() {
       }
     : null;
 
-  const [entries, setEntries] = useState<Entry[]>([]);
+  // UI 状態だけ保持
   const [openModal, setOpenModal] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState("");
   const [sort, setSort] = useState("new");
-  const [hydrated, setHydrated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // 既存表示ありの再取得
 
-  // キャッシュキー
-  const CACHE_KEY = "entriesCache:v1";
+  // EntriesList から受け取る情報
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [count, setCount] = useState(0);
 
-  // 初回ロード：キャッシュ→即表示、その後最新取得
-  useEffect(() => {
-    let didCancel = false;
-
-    // 1) sessionStorage から即時表示
-    try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
-      if (raw) {
-        const arr = JSON.parse(raw) as Entry[];
-        if (!didCancel && Array.isArray(arr) && arr.length) {
-          setEntries(arr);
-          setLoading(false);
-        }
-      }
-    } catch {}
-
-    // 2) サーバから取得（タイムアウト＋Abort）
-    (async () => {
-      const ac = new AbortController();
-      const to = window.setTimeout(() => ac.abort(), 8000); // 8秒タイムアウト
-      try {
-        setRefreshing(!loading); // すでに何か表示があれば“更新中”扱い
-        const res = await fetch("/api/entries", { cache: "no-store", signal: ac.signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (!didCancel && Array.isArray(data.entries)) {
-            const normalized = (data.entries as any[]).map((d) => ({
-              ...d,
-              tags: Array.isArray(d.tags)
-                ? d.tags
-                : typeof d.tags === "string"
-                ? d.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
-                : [],
-              contributor:
-                d.contributor ?? { id: "guest", name: "guest", avatarUrl: "https://i.pravatar.cc/100?img=1" },
-            })) as Entry[];
-            setEntries(normalized);
-            try {
-              sessionStorage.setItem(CACHE_KEY, JSON.stringify(normalized));
-            } catch {}
-          }
-        }
-      } catch {
-        // ネットワークエラー → キャッシュが無ければ“0件とスケルトン”のまま
-      } finally {
-        window.clearTimeout(to);
-        if (!didCancel) {
-          setLoading(false);
-          setRefreshing(false);
-          setHydrated(true);
-        }
-      }
-    })();
-
-    return () => {
-      didCancel = true;
-    };
-  }, []);
-
-  const allTags = useMemo(
-    () => Array.from(new Set(entries.flatMap((e) => e.tags)) || []),
-    [entries]
-  );
-
-  const contributors = useMemo(() => {
-    const map = new Map<string, Contributor>();
-    entries.forEach((e) => {
-      if (e?.contributor?.id) map.set(e.contributor.id, e.contributor);
-    });
-    return Array.from(map.values());
-  }, [entries]);
-
-  const filtered = useMemo(() => {
-    let list = [...entries];
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      list = list.filter((e) => e.title.toLowerCase().includes(q) || e.episode.toLowerCase().includes(q));
-    }
-    if (selectedTags.length) list = list.filter((e) => selectedTags.every((t) => e.tags?.includes(t)));
-    if (selectedUser) list = list.filter((e) => e.contributor.id === selectedUser);
-
-    if (sort === "likes") {
-      list.sort((a, b) => b.likes - a.likes);
-    } else {
-      list.sort((a, b) => {
-        const da = a.createdAt ? new Date(a.createdAt as any).getTime() : 0;
-        const db = b.createdAt ? new Date(b.createdAt as any).getTime() : 0;
-        return db - da; // 新しい順
-      });
-    }
-    return list;
-  }, [entries, query, selectedTags, selectedUser, sort]);
-
-  // いいねトグル：API 実装（/api/entries/[id] PATCH）に合わせる
-  const onToggleLike = async (id: string) => {
-    const key = `liked:${id}`;
-    const wasLiked = typeof window !== "undefined" ? !!localStorage.getItem(key) : false;
-
-    // 楽観反映
-    setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? -1 : 1)) } : e))
-    );
-    if (typeof window !== "undefined") {
-      if (wasLiked) localStorage.removeItem(key);
-      else localStorage.setItem(key, "1");
-    }
-    if (!hydrated) return;
-
-    try {
-      const res = await fetch(`/api/entries/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: wasLiked ? "unlike" : "like" }),
-      });
-      if (!res.ok) throw new Error("toggle failed");
-      const data = await res.json(); // { id, likes }
-      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, likes: data.likes } : e)));
-    } catch {
-      // ロールバック
-      setEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, likes: Math.max(0, e.likes + (wasLiked ? 1 : -1)) } : e))
-      );
-      if (typeof window !== "undefined") {
-        if (wasLiked) localStorage.setItem(key, "1");
-        else localStorage.removeItem(key);
-      }
-      alert("いいね切り替えに失敗しました。時間をおいて再度お試しください。");
-    }
-  };
-
+  // 投稿作成（以前のロジックをそのまま利用）
   const onCreate = async (payload: any) => {
     const candidate = {
       ...payload,
       contributor: user || { id: "guest", name: "guest", avatarUrl: "https://i.pravatar.cc/100?img=1" },
     };
-    const optimistic: Entry = {
-      id: "tmp-" + Date.now(),
-      title: candidate.title,
-      episode: candidate.episode,
-      tags: candidate.tags || [],
-      imageUrl: candidate.imageUrl || FALLBACK_IMG,
-      contributor: candidate.contributor,
-      likes: 0,
-      createdAt: new Date().toISOString(),
-    };
-    setEntries((prev) => [optimistic, ...prev]);
-
     try {
       const res = await fetch("/api/entries", {
         method: "POST",
@@ -726,28 +302,8 @@ export default function Page() {
         body: JSON.stringify(candidate),
       });
       if (!res.ok) throw new Error("failed");
-      const createdRaw = (await res.json()).entry as any;
-      const created: Entry = {
-        id: createdRaw.id,
-        title: createdRaw.title,
-        episode: createdRaw.episode,
-        tags: Array.isArray(createdRaw.tags)
-          ? createdRaw.tags
-          : typeof createdRaw.tags === "string"
-          ? createdRaw.tags.split(",").map((s: string) => s.trim()).filter(Boolean)
-          : [],
-        imageUrl: createdRaw.imageUrl ?? "",
-        contributor: createdRaw.contributor ?? candidate.contributor,
-        likes: createdRaw.likes ?? 0,
-        createdAt: createdRaw.createdAt ?? new Date().toISOString(),
-      };
-      setEntries((prev) => [created, ...prev.filter((e) => e.id !== optimistic.id)]);
-      // キャッシュも更新
-      try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify([created, ...entries]));
-      } catch {}
+      // 成功したら EntriesList 側の SWR が自動で再検証してくれるので、ここでは何もしない
     } catch {
-      setEntries((prev) => prev.filter((e) => e.id !== optimistic.id));
       alert("投稿に失敗しました。時間をおいて再度お試しください。");
     }
   };
@@ -757,7 +313,7 @@ export default function Page() {
       {/* ヒーロー */}
       <HeaderHero user={user} onOpenCreate={() => setOpenModal(true)} />
 
-      {/* フィルタ */}
+      {/* フィルタ（件数/タグ/投稿者は EntriesList から渡される） */}
       <Filters
         allTags={allTags}
         selectedTags={selectedTags}
@@ -775,54 +331,29 @@ export default function Page() {
           setSelectedUser("");
           setSort("new");
         }}
-        count={filtered.length}
+        count={count}
       />
 
-      {/* 更新中の薄いインジケータ（既に何か表示がある時のみ） */}
-      {refreshing && (
-        <div className="container-page pt-2 pb-0">
-          <div className="text-xs text-neutral-500">最新の投稿を取得しています…</div>
-        </div>
-      )}
+      {/* 一覧（取得・フィルタ・並び替え・削除・再検証） */}
+      <EntriesList
+        query={query}
+        selectedTags={selectedTags}
+        selectedUserId={selectedUser}
+        sort={sort as "new" | "likes"}
+        refreshIntervalMs={0}
+        currentUserId={user?.id}
+        onCountChange={setCount}
+        onAllTags={setAllTags}
+        onContributors={setContributors}
+      />
 
-      {/* 1カラムのフィード */}
-      <section className="container-page pb-16 pt-4 space-y-8">
-        {loading && entries.length === 0 ? (
-          // ローディング：スケルトンを数枚
-          <>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </>
-        ) : filtered.length === 0 ? (
-          <div className="text-center text-neutral-600 py-16">
-            条件に一致する思い出がありません。条件をゆるめてみてください。
-          </div>
-        ) : (
-          filtered.map((e, idx) => (
-            <EntryCard
-              key={e.id}
-              idx={idx}
-              e={e}
-              hydrated={hydrated}
-              onToggleLike={onToggleLike}
-              onDelete={(id) => setEntries((p) => p.filter((x) => x.id !== id))}
-              currentUserId={user?.id}
-            />
-          ))
-        )}
-      </section>
-
-      {/* 右下の追従＋ボタン（PC/SP 共通） */}
+      {/* 右下＋ボタン */}
       <button
         aria-label="新しい思い出を登録"
         onClick={() => {
-          if (user) {
-            setOpenModal(true);
-          } else {
-            if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
-              signIn("discord");
-            }
+          if (user) setOpenModal(true);
+          else if (confirm("投稿するにはログインが必要です。Discordでログインしますか？")) {
+            signIn("discord");
           }
         }}
         className="fab"
