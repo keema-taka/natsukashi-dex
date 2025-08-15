@@ -4,8 +4,7 @@ generator client {
 }
 
 datasource db {
-  // Render 本番は現在 SQLite を使用（DATABASE_URL = file:/tmp/sqlite.db 等）
-  provider = "sqlite"
+  provider = "postgresql"     // ← postgresql に変更
   url      = env("DATABASE_URL")
 }
 
