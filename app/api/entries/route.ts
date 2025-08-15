@@ -189,7 +189,8 @@ async function notifyDiscordToNotifyChannel(
         type: "rich" as const,
         title: safe(entry.title, 256) || "(無題)",
         url: detailUrl,
-        description, // ← ここを差し替え
+        // ★ episode の下に by を追記
+        description: `${safe(entry.episode, 4096)}\n\nby ${safe(contributor.name, 128)}`,
         ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
       },
     ],
