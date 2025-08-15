@@ -118,9 +118,9 @@ export default function EntryCard({
   const onTouchStartLike = () => {
     if (longPressTimer.current) window.clearTimeout(longPressTimer.current);
     longPressTimer.current = window.setTimeout(async () => {
-      await fetchLikers();
-      setShowLikers(true);
-    }, 500);
+  await fetchLikers();
+  setShowLikers(true);
+}, 1000); 
   };
   const clearLongPress = () => {
     if (longPressTimer.current) {

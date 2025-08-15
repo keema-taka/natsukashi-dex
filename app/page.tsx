@@ -13,6 +13,8 @@ type Contributor = { id: string; name: string; avatarUrl: string };
 const FIXED_TAGS: string[] = [
   "ゲーム機","アニメ","漫画","おもちゃ","お菓子","文房具",
   "音楽","ファッション","雑誌","家電","スポーツ","⚽️","⚾️",
+  // 追加タグ
+  "テレビ","ネット","食べ物","飲み物",
 ];
 
 // ————————————————————————————————————————————————
@@ -56,7 +58,7 @@ function HeaderHero({
 }
 
 // ————————————————————————————————————————————————
-// 投稿モーダル（送信の二重防止付き）
+// 投稿モーダル（送信の二重防止・画像URL/ペースト対応）
 // ————————————————————————————————————————————————
 function CreateModal({
   open,
@@ -73,6 +75,42 @@ function CreateModal({
   const [submitting, setSubmitting] = useState(false);
 
   const isValid = form.title.trim().length > 0 && form.episode.trim().length > 0;
+
+  // 画像のクリップボード貼り付け対応（画像ファイル優先／URLも可）
+  const handlePasteIntoImage = React.useCallback(async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items || !items.length) return;
+
+    // 1) 画像ファイルがあれば優先（GIF含む）
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "file") {
+        const f = it.getAsFile();
+        if (f && f.type.startsWith("image/")) {
+          setFile(f);
+          // ファイルを使う場合はURL欄はクリア
+          setForm((p) => ({ ...p, imageUrl: "" }));
+          return;
+        }
+      }
+    }
+
+    // 2) 画像URLらしきテキストがあればURL欄に入れる
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      if (it.kind === "string") {
+        it.getAsString((s) => {
+          const str = (s || "").trim();
+          if (
+            /^https?:\/\/.+\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(str) ||
+            /^https?:\/\//i.test(str)
+          ) {
+            setForm((p) => ({ ...p, imageUrl: str }));
+          }
+        });
+      }
+    }
+  }, []);
 
   const handleSubmit = React.useCallback(async () => {
     if (submitting) return; // 二重送信ガード
@@ -166,7 +204,7 @@ function CreateModal({
               required
               disabled={submitting}
               aria-invalid={!!errors.episode}
-              className={`w-full border rounded-lg px-3 py-2 min-h-[88px] ${errors.episode ? "border-pink-400" : ""}`}
+              className={`w-full border rounded-lg px-3 py-2 minハ-[88px] ${errors.episode ? "border-pink-400" : ""}`}
               value={form.episode}
               onChange={(e) => setForm({ ...form, episode: e.target.value })}
               placeholder="例）放課後に友だちとポケモン交換してた…"
@@ -207,6 +245,7 @@ function CreateModal({
             </div>
           </div>
 
+          {/* 画像ファイル（任意） */}
           <label className="grid gap-1">
             <span className="text-sm">画像ファイル（任意・5MBまで）</span>
             <input
@@ -216,14 +255,32 @@ function CreateModal({
               disabled={submitting}
               className="w-full border rounded-lg px-3 py-2 file:mr-3 file:px-3 file:py-2 file:rounded-md file:border file:bg-white file:hover:bg-neutral-50 file:border-neutral-300"
             />
-            <span className="text-xs text-neutral-500">※ 直接URL入力よりもファイル選択を優先します</span>
+            <span className="text-xs text-neutral-500">※ 直接URL入力よりもファイル選択を優先します（GIF対応）</span>
+          </label>
+
+          {/* 画像URL（任意）＋ クリップボード貼り付け対応 */}
+          <label className="grid gap-1">
+            <span className="text-sm">画像URL（任意・GIF対応）</span>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="https://example.com/image.gif など（ここに Ctrl/⌘+V で貼り付けOK）"
+              className="w-full border rounded-lg px-3 py-2"
+              value={form.imageUrl}
+              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+              onPaste={handlePasteIntoImage}
+              disabled={submitting}
+            />
+            <span className="text-xs text-neutral-500">
+              画像ファイルをクリップボードから貼り付けてもOKです。ファイルがある場合はファイルを優先します。
+            </span>
           </label>
         </div>
 
         <div className="p-5 border-t flex items-center justify-end gap-3">
           <button className="px-3 py-1.5 rounded-lg border" onClick={onClose} disabled={submitting}>キャンセル</button>
           <button
-            className={`px-3 py-1.5 rounded-lg text-white transition disabled:opacity-50 disabled:cursor-not-allowed bg-black ${submitting ? "cursor-wait" : ""}`}
+            className={`px-3 py-1.5 rounded-lg text白 transition disabled:opacity-50 disabled:cursor-not-allowed bg-black ${submitting ? "cursor-wait" : ""}`}
             disabled={!isValid || submitting}
             onClick={handleSubmit}
           >
@@ -261,7 +318,7 @@ function Filters({
           placeholder="キーワード（タイトル・エピソード）"
           className="w-full md:w-96 border rounded-lg px-3 py-2"
         />
-        {/* ★ 投稿者は“名前” を value にする（EntriesList 側と対応） */}
+        {/* 投稿者は “名前” を value にする（EntriesList 側と対応） */}
         <select value={selectedUser} onChange={(e) => setSelectedUser(e.target.value)} className="border rounded-lg px-3 py-2">
           <option value="">投稿者で絞り込み</option>
           {contributors.map((c: Contributor) => (
@@ -320,7 +377,7 @@ export default function Page() {
   const [openModal, setOpenModal] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedUser, setSelectedUser] = useState(""); // ← “名前” が入る
+  const [selectedUser, setSelectedUser] = useState(""); // “名前” が入る
   const [sort, setSort] = useState<"new" | "likes">("new");
 
   // EntriesList から受け取る情報
@@ -328,7 +385,7 @@ export default function Page() {
   const [contributorsFromList, setContributorsFromList] = useState<Contributor[]>([]);
   const [visibleCount, setVisibleCount] = useState(0);
 
-  // 投稿作成（Promise<boolean> を返すようにしてモーダル側で制御）
+  // 投稿作成（Promise<boolean> を返す）
   const onCreate = async (payload: any): Promise<boolean> => {
     const candidate = {
       ...payload,
@@ -383,7 +440,7 @@ export default function Page() {
       <EntriesList
         query={query}
         selectedTags={selectedTags}
-        selectedUserId={selectedUser}   // ← “名前” でフィルタ
+        selectedUserId={selectedUser}   // “名前” でフィルタ
         sort={sort}
         refreshIntervalMs={0}
         currentUserId={user?.id}

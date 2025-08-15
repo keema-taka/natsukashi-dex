@@ -174,6 +174,11 @@ async function notifyDiscordToNotifyChannel(
 
   const safe = (s: string | null | undefined, n: number) => String(s ?? "").slice(0, n);
 
+  // ★ エピソードの下に by を追加
+  const description =
+    (safe(entry.episode, 4000) || "") +
+    (contributor?.name ? `\n\nby ${safe(contributor.name, 80)}` : "");
+
   const payload = {
     username: "図鑑登録通知くん",
     avatar_url:
@@ -184,7 +189,7 @@ async function notifyDiscordToNotifyChannel(
         type: "rich" as const,
         title: safe(entry.title, 256) || "(無題)",
         url: detailUrl,
-        description: safe(entry.episode, 4096),
+        description, // ← ここを差し替え
         ...(absImageUrl ? { image: { url: absImageUrl } } : {}),
       },
     ],
