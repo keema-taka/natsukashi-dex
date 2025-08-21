@@ -311,9 +311,10 @@ export async function GET(req: NextRequest) {
   try {
     const debug = req.nextUrl.searchParams.get("debug");
     const fast = req.nextUrl.searchParams.get("fast") === "1";
+    const sync = req.nextUrl.searchParams.get("sync") === "1";
 
-    // Bot が無い、またはローカル開発環境なら DB fallback
-    if (!DISCORD_BOT_TOKEN || process.env.NODE_ENV === "development") {
+    // Bot が無い、または（ローカル開発環境 AND sync=1でない）なら DB fallback
+    if (!DISCORD_BOT_TOKEN || (process.env.NODE_ENV === "development" && !sync)) {
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
         select: {

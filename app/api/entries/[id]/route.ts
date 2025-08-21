@@ -121,11 +121,13 @@ function mapDiscordMessageToEntry(m: any) {
 // }
 
 // ---------- GET: 単一取得 ----------
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
+    const url = new URL(req.url);
+    const sync = url.searchParams.get("sync") === "1";
 
-    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID || process.env.NODE_ENV === "development") {
+    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID || (process.env.NODE_ENV === "development" && !sync)) {
       // 開発環境ではDBのみ使用
       const row = await prisma.entry.findUnique({
         where: { id },
