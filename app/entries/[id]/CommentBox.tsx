@@ -53,6 +53,8 @@ export default function CommentBox({ entryId }: { entryId: string }) {
 
     // revalidate
     mutate(`/api/entries/${entryId}/comments?take=20`);
+    // エントリーリストのcommentCountを更新
+    window.dispatchEvent(new CustomEvent('entries:refresh'));
   };
 
   const onEdit = async (comment: Comment) => {
@@ -94,6 +96,8 @@ export default function CommentBox({ entryId }: { entryId: string }) {
       return;
     }
     mutate(`/api/entries/${entryId}/comments?take=20`);
+    // エントリーリストのcommentCountを更新
+    window.dispatchEvent(new CustomEvent('entries:refresh'));
   };
 
   return (

@@ -322,9 +322,7 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
-      const enriched = fast 
-        ? rows.map(e => ({ ...e, commentCount: 0 }))
-        : await withCommentCounts(rows);
+      const enriched = await withCommentCounts(rows);
       if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
       return jsonNoStore({ entries: enriched }, 200);
     }
@@ -362,9 +360,7 @@ export async function GET(req: NextRequest) {
     if (allMsgs.length === 0) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] using in-memory cache");
-        const enrichedCache = fast 
-          ? lastGoodEntries.map(e => ({ ...e, commentCount: 0 }))
-          : await withCommentCounts(lastGoodEntries);
+        const enrichedCache = await withCommentCounts(lastGoodEntries);
         return jsonNoStore({ entries: enrichedCache }, 200);
       }
       const rows = await prisma.entry.findMany({
@@ -374,9 +370,7 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
-      const enrichedDb = fast 
-        ? rows.map(e => ({ ...e, commentCount: 0 }))
-        : await withCommentCounts(rows);
+      const enrichedDb = await withCommentCounts(rows);
       if (debug === "1")
         console.warn("[entries][debug] discord empty -> fallback to DB:", enrichedDb.length);
       return jsonNoStore({ entries: enrichedDb }, 200);
@@ -423,9 +417,7 @@ export async function GET(req: NextRequest) {
     if (mine.length === 0) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] mine=0 -> use cache");
-        const enrichedCache = fast 
-          ? lastGoodEntries.map(e => ({ ...e, commentCount: 0 }))
-          : await withCommentCounts(lastGoodEntries);
+        const enrichedCache = await withCommentCounts(lastGoodEntries);
         return jsonNoStore({ entries: enrichedCache }, 200);
       }
       const rows = await prisma.entry.findMany({
@@ -435,9 +427,7 @@ export async function GET(req: NextRequest) {
           imageUrl: true, contributor: true, likes: true, createdAt: true,
         },
       });
-      const enrichedDb = fast 
-        ? rows.map(e => ({ ...e, commentCount: 0 }))
-        : await withCommentCounts(rows);
+      const enrichedDb = await withCommentCounts(rows);
       if (debug === "1") console.warn("[entries][debug] mine=0 -> use DB:", enrichedDb.length);
       return jsonNoStore({ entries: enrichedDb }, 200);
     }
@@ -497,9 +487,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 6) コメント件数を付与（fast=1では0固定）
-    const enriched = fast 
-      ? entries.map(e => ({ ...e, commentCount: 0 }))
-      : await withCommentCounts(entries);
+    const enriched = await withCommentCounts(entries);
 
     // ✅ キャッシュ更新
     lastGoodEntries = enriched;

@@ -153,7 +153,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     // まずBot APIで取得を試行
     const r = await fetch(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages/${id}`,
-      { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }, cache: "no-store" }
+      { 
+        headers: { 
+          "Authorization": `Bot ${DISCORD_BOT_TOKEN}`,
+          "Accept": "application/json",
+          "Accept-Charset": "utf-8"
+        }, 
+        cache: "no-store" 
+      }
     );
 
     if (r.status === 404) return jsonNoStore({ error: "not found" }, 404);
@@ -177,7 +184,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         try {
           const webhookResp = await fetch(
             `https://discord.com/api/v10/webhooks/${webhookId}/${webhookToken}/messages/${id}`,
-            { cache: "no-store" }
+            { 
+              cache: "no-store",
+              headers: {
+                "Accept": "application/json",
+                "Accept-Charset": "utf-8"
+              }
+            }
           );
           if (webhookResp.ok) {
             const fullData = await webhookResp.json();
