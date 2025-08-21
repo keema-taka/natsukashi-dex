@@ -65,7 +65,12 @@ export default function EntriesList(props: {
   const { data, error, isLoading, mutate } = useSWR<{ entries: any[] }>(
     "/api/entries?fast=1",
     fetcher,
-    { refreshInterval: refreshIntervalMs }
+    { 
+      refreshInterval: refreshIntervalMs,
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 10000 // 10秒間は同じリクエストを重複除去
+    }
   );
 
   React.useEffect(() => {

@@ -250,16 +250,34 @@ function mapDiscordMessageToEntry(m: any) {
     image = m.attachments[0].url;
   }
 
-  let name =
-    (parsed as any).name ||
-    (typeof m.content === "string" && / の投稿$/.test(m.content)
-      ? m.content.replace(/ の投稿$/, "")
-      : m.author?.username || "unknown");
-
-  const avatarUrl =
-    m.author?.avatar && m.author?.id
-      ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`
-      : "https://i.pravatar.cc/100?img=1";
+  // 名前の取得優先順位: embed author > content解析 > webhook username > bot username
+  let name = "";
+  let avatarUrl = "";
+  
+  if (e.author?.name) {
+    // embedにauthor情報がある場合（理想的）
+    name = e.author.name;
+    avatarUrl = e.author.icon_url || "";
+  } else if (parsed.name) {
+    // content解析で名前が取得できた場合
+    name = parsed.name;
+  } else if (typeof m.content === "string" && / の投稿$/.test(m.content)) {
+    // contentから「○○の投稿」パターンを抽出
+    const match = m.content.match(/^(.+?)\s*の投稿/);
+    if (match) name = match[1].replace(/^\[.*?\]\s*/, ""); // マーカー除去
+  }
+  
+  // フォールバック
+  if (!name) name = m.author?.username || "unknown";
+  
+  // アバターURL設定
+  if (!avatarUrl) {
+    if (m.author?.avatar && m.author?.id) {
+      avatarUrl = `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`;
+    } else {
+      avatarUrl = "https://cdn.discordapp.com/embed/avatars/0.png";
+    }
+  }
 
   return {
     id: m.id,
@@ -368,19 +386,16 @@ export async function GET(req: NextRequest) {
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    // 1) 自分の webhook の投稿に限定 + フッター/URL/マーカーのどれか必須
+    // 1) 自分の webhook の投稿に限定（embed情報なしでもOK・webhook経由で後で補完）
+    // 画像アップロード専用マーカーは除外
     let mine = msgs.filter((m: any) => {
       if (!WEBHOOK_ID) return false;
       const isMyWebhook = String(m.webhook_id ?? "") === WEBHOOK_ID;
       if (!isMyWebhook) return false;
-
-      const e = m.embeds?.[0];
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-      const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
-      const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);
-      const contentMark = typeof m.content === "string" && m.content.includes(MARKER);
-
-      return hasFooter || urlOk || contentMark;
+      
+      // アップロード専用マーカーを含むメッセージは除外
+      const isUploadOnly = typeof m.content === "string" && m.content.includes("[natsukashi-dex-upload]");
+      return !isUploadOnly;
     });
 
     // 2) 中身が薄いものを webhook 認証で補完
@@ -419,7 +434,7 @@ export async function GET(req: NextRequest) {
     // 4) 変換
     const entries = mine.map(mapDiscordMessageToEntry);
 
-    // 5) fast=1 でなければ DB で補完（tags/likes/contributor/title/episode/imageUrl）
+    // 5) fast=1 でなければ DB で補完・同期（tags/likes/contributor/title/episode/imageUrl）
     if (!fast) {
       const ids = entries.map((e) => e.id);
       const rows = await prisma.entry.findMany({
@@ -430,6 +445,33 @@ export async function GET(req: NextRequest) {
         },
       });
       const byDb = new Map(rows.map((r) => [r.id, r]));
+      
+      // 存在しないエントリをDBに作成（1件ずつupsertで作成）
+      const missingEntries = entries.filter((e) => !byDb.has(e.id));
+      if (missingEntries.length > 0) {
+        for (const e of missingEntries) {
+          try {
+            await prisma.entry.create({
+              data: {
+                id: e.id,
+                title: e.title,
+                episode: e.episode,
+                age: e.age,
+                tags: Array.isArray(e.tags) ? e.tags.join(",") : String(e.tags || ""),
+                imageUrl: e.imageUrl,
+                contributor: e.contributor,
+                likes: e.likes,
+                createdAt: e.createdAt,
+              },
+            });
+          } catch (error) {
+            // 重複エラーは無視（すでに存在する場合）
+            console.warn(`Entry ${e.id} already exists, skipping`);
+          }
+        }
+      }
+      
+      // DB補完処理
       for (const e of entries) {
         const db = byDb.get(e.id);
         if (!db) continue;

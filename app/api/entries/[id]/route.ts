@@ -62,19 +62,35 @@ function hash05(s: string): number {
 function mapDiscordMessageToEntry(m: any) {
   const e = m.embeds?.[0] ?? {};
   const parsed = typeof m.content === "string" ? parseFromContent(m.content) : {};
-  const name =
-    parsed.name ||
-    (typeof m.content === "string" && / の投稿$/.test(m.content)
-      ? m.content.replace(/ の投稿$/, "")
-      : m.author?.username || "unknown");
-
-  // ★ BigInt を使わないフォールバックに変更
-  const avatarUrl =
-    m.author?.avatar && m.author?.id
-      ? `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`
-      : m.author?.id
-        ? `https://cdn.discordapp.com/embed/avatars/${hash05(String(m.author.id))}.png`
-        : "https://i.pravatar.cc/100?img=1";
+  
+  // 名前の取得優先順位: embed author > content解析 > webhook username > bot username
+  let name = "";
+  let avatarUrl = "";
+  
+  if (e.author?.name) {
+    // embedにauthor情報がある場合（理想的）
+    name = e.author.name;
+    avatarUrl = e.author.icon_url || "";
+  } else if (parsed.name) {
+    // content解析で名前が取得できた場合
+    name = parsed.name;
+  } else if (typeof m.content === "string" && / の投稿$/.test(m.content)) {
+    // contentから「○○の投稿」パターンを抽出
+    const match = m.content.match(/^(.+?)\s*の投稿/);
+    if (match) name = match[1].replace(/^\[.*?\]\s*/, ""); // マーカー除去
+  }
+  
+  // フォールバック
+  if (!name) name = m.author?.username || "unknown";
+  
+  // アバターURL設定
+  if (!avatarUrl) {
+    if (m.author?.avatar && m.author?.id) {
+      avatarUrl = `https://cdn.discordapp.com/avatars/${m.author.id}/${m.author.avatar}.png`;
+    } else {
+      avatarUrl = "https://cdn.discordapp.com/embed/avatars/0.png";
+    }
+  }
 
   const title = e.title ?? parsed.title ?? "(無題)";
   const episode = e.description ?? parsed.episode ?? "";
@@ -113,6 +129,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       return jsonNoStore({ error: "discord not configured" }, 500);
     }
 
+    // まずBot APIで取得を試行
     const r = await fetch(
       `https://discord.com/api/v10/channels/${DISCORD_CHANNEL_ID}/messages/${id}`,
       { headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` }, cache: "no-store" }
@@ -125,8 +142,36 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       return jsonNoStore({ error: "failed" }, 500);
     }
 
-    const json = await r.json();
-    if (!ensureOurs(json)) return jsonNoStore({ error: "not found" }, 404);
+    let json = await r.json();
+    
+    // embed情報がない場合はWebhook経由で詳細取得を試行
+    const hasValidContent = json.content && json.content.length > 0;
+    const hasEmbeds = json.embeds && json.embeds.length > 0;
+    const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+    
+    if (!hasValidContent && !hasEmbeds && WEBHOOK_URL) {
+      const webhookMatch = WEBHOOK_URL.match(/\/webhooks\/(\d+)\/([^/?#]+)/);
+      if (webhookMatch) {
+        const [, webhookId, webhookToken] = webhookMatch;
+        try {
+          const webhookResp = await fetch(
+            `https://discord.com/api/v10/webhooks/${webhookId}/${webhookToken}/messages/${id}`,
+            { cache: "no-store" }
+          );
+          if (webhookResp.ok) {
+            const fullData = await webhookResp.json();
+            json = { ...json, ...fullData };
+          }
+        } catch (e) {
+          console.warn("Webhook fallback failed:", e);
+        }
+      }
+    }
+    
+    // 画像アップロード専用は除外
+    if (json.content && json.content.includes("[natsukashi-dex-upload]")) {
+      return jsonNoStore({ error: "not found" }, 404);
+    }
 
     const entry = mapDiscordMessageToEntry(json);
 
