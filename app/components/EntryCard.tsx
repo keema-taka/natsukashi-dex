@@ -153,6 +153,7 @@ export default function EntryCard({
               alt={entry.title}
               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
               fallbackSrc={FALLBACK_IMG}
+              entryId={entry.id}
             />
           </Link>
         ) : (
@@ -161,6 +162,7 @@ export default function EntryCard({
             alt={entry.title}
             className="w-full h-full object-cover"
             fallbackSrc={FALLBACK_IMG}
+            entryId={entry.id}
           />
         )}
       </div>

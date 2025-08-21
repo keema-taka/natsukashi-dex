@@ -144,6 +144,7 @@ export default async function EntryPage({
             alt={e.title}
             className="w-full h-full object-cover"
             fallbackSrc={FALLBACK_IMG}
+            entryId={e.id}
           />
         </div>
 
