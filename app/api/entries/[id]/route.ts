@@ -81,7 +81,7 @@ function mapDiscordMessageToEntry(m: any) {
   }
   
   // フォールバック
-  if (!name) name = m.author?.username || "unknown";
+  if (!name) name = m.author?.username || m.author?.global_name || "unknown";
   
   // アバターURL設定
   if (!avatarUrl) {

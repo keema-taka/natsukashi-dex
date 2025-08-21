@@ -38,10 +38,9 @@ function ensureContributor(input: any): Contributor {
   const c = input ?? {};
   return {
     id: String(c.id ?? "guest"),
-    name: String(c.name ?? "guest"),
+    name: String(c.name ?? "ゲスト"),
     avatarUrl: String(
-      c.avatarUrl ??
-        "https://kotonohaworks.com/free-icons/wp-content/uploads/kkrn_icon_user_7.png"
+      c.avatarUrl ?? "https://cdn.discordapp.com/embed/avatars/0.png"
     ),
   };
 }
@@ -265,7 +264,7 @@ function mapDiscordMessageToEntry(m: any) {
   }
   
   // フォールバック
-  if (!name) name = m.author?.username || "unknown";
+  if (!name) name = m.author?.username || m.author?.global_name || "unknown";
   
   // アバターURL設定
   if (!avatarUrl) {
@@ -402,6 +401,10 @@ export async function GET(req: NextRequest) {
     if (mine.length === 0) {
       const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
       mine = msgs.filter((m: any) => {
+        // アップロード専用マーカーを含むメッセージは除外
+        const isUploadOnly = typeof m.content === "string" && m.content.includes("[natsukashi-dex-upload]");
+        if (isUploadOnly) return false;
+        
         const e = m.embeds?.[0];
         const hasFooter = (e?.footer?.text ?? "") === "natsukashi-dex";
         const urlOk = typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`);

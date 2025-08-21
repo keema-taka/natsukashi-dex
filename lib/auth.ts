@@ -32,6 +32,23 @@ export const authOptions: NextAuthOptions = {
 
   session: { strategy: "jwt" },
 
+  callbacks: {
+    async jwt({ token, account, profile }) {
+      if (account && profile) {
+        token.id = profile.id;
+        token.sub = profile.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token) {
+        (session.user as any).id = token.id || token.sub;
+        (session.user as any).sub = token.sub;
+      }
+      return session;
+    },
+  },
+
   logger: {
     error(code, metadata) {
       console.error("[next-auth][error]", code, metadata);

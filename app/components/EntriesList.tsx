@@ -34,8 +34,8 @@ function toTags(v: unknown): string[] {
 function toContributor(v: any): Contributor {
   return {
     id: String(v?.id ?? 'guest'),
-    name: String(v?.name ?? 'guest'),
-    avatarUrl: String(v?.avatarUrl ?? 'https://i.pravatar.cc/100?img=1'),
+    name: String(v?.name ?? 'ゲスト'),
+    avatarUrl: String(v?.avatarUrl ?? 'https://cdn.discordapp.com/embed/avatars/0.png'),
   };
 }
 
@@ -66,10 +66,10 @@ export default function EntriesList(props: {
     "/api/entries?fast=1",
     fetcher,
     { 
-      refreshInterval: refreshIntervalMs,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      dedupingInterval: 10000 // 10秒間は同じリクエストを重複除去
+      refreshInterval: refreshIntervalMs || 5000, // デフォルト5秒でリフレッシュ
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 2000 // 2秒間は同じリクエストを重複除去
     }
   );
 

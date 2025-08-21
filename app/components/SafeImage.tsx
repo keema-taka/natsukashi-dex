@@ -20,14 +20,17 @@ export default function SafeImage({
   const [current, setCurrent] = React.useState(initial);
   const [loaded, setLoaded] = React.useState(false);
 
-  // 優先度の高い画像はプリロード
+  // 画像のプリロード処理
   React.useEffect(() => {
-    if (priority && src && src.trim() !== "") {
+    if (src && src.trim() !== "") {
       const img = new Image();
       img.src = src;
       img.onload = () => setLoaded(true);
+      img.onerror = () => {
+        if (current !== fallbackSrc) setCurrent(fallbackSrc);
+      };
     }
-  }, [src, priority]);
+  }, [src, current, fallbackSrc]);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
