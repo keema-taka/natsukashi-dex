@@ -174,10 +174,7 @@ async function notifyDiscordToNotifyChannel(
 
   const safe = (s: string | null | undefined, n: number) => String(s ?? "").slice(0, n);
 
-  // ★ エピソードの下に by を追加
-  const description =
-    (safe(entry.episode, 4000) || "") +
-    (contributor?.name ? `\n\nby ${safe(contributor.name, 80)}` : "");
+  // ★ エピソードの下に by を追加 (未使用のため削除)
 
   const payload = {
     username: "図鑑登録通知くん",
@@ -464,7 +461,7 @@ export async function GET(req: NextRequest) {
                 createdAt: e.createdAt,
               },
             });
-          } catch (error) {
+          } catch {
             // 重複エラーは無視（すでに存在する場合）
             console.warn(`Entry ${e.id} already exists, skipping`);
           }

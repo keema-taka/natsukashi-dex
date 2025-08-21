@@ -52,12 +52,12 @@ function parseFromContent(content: string) {
   return out;
 }
 
-// 0..5 を返す軽いハッシュ
-function hash05(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h % 6;
-}
+// 0..5 を返す軽いハッシュ (未使用のため削除)
+// function hash05(s: string): number {
+//   let h = 0;
+//   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+//   return h % 6;
+// }
 
 function mapDiscordMessageToEntry(m: any) {
   const e = m.embeds?.[0] ?? {};
@@ -110,15 +110,15 @@ function mapDiscordMessageToEntry(m: any) {
   };
 }
 
-function ensureOurs(json: any) {
-  const e = json.embeds?.[0];
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
-  return (
-    (e?.footer?.text ?? "") === "natsukashi-dex" ||
-    (typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`)) ||
-    (typeof json.content === "string" && json.content.includes(MARKER))
-  );
-}
+// function ensureOurs(json: any) {
+//   const e = json.embeds?.[0];
+//   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+//   return (
+//     (e?.footer?.text ?? "") === "natsukashi-dex" ||
+//     (typeof e?.url === "string" && appUrl && e.url.startsWith(`${appUrl}/entries/`)) ||
+//     (typeof json.content === "string" && json.content.includes(MARKER))
+//   );
+// }
 
 // ---------- GET: 単一取得 ----------
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {

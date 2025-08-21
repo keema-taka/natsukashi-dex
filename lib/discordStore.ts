@@ -41,9 +41,9 @@ function parseFooter(footer?: string) {
   return res;
 }
 
-function firstNonEmpty(...arr: (string | undefined)[]) {
-  return arr.find(Boolean) || "";
-}
+// function firstNonEmpty(...arr: (string | undefined)[]) {
+//   return arr.find(Boolean) || "";
+// }
 
 export function toEntry(m: DiscordMessage): EntryLite | null {
   const e = (m.embeds && m.embeds[0]) || {};

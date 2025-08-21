@@ -74,9 +74,9 @@ function LikesPopover({
 
 export default function EntryCard({
   entry,
-  currentUserId, // 将来用
+  currentUserId: _currentUserId, // 将来用 
   onDeleted,
-  forceKebab,     // 受け取りだけ
+  forceKebab: _forceKebab,     // 受け取りだけ
 }: {
   entry: Entry;
   currentUserId?: string;
