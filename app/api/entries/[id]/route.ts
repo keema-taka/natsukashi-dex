@@ -125,8 +125,27 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     const { id } = await ctx.params;
 
-    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
-      return jsonNoStore({ error: "discord not configured" }, 500);
+    if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID || process.env.NODE_ENV === "development") {
+      // 開発環境ではDBのみ使用
+      const row = await prisma.entry.findUnique({
+        where: { id },
+        select: { id: true, title: true, episode: true, imageUrl: true, tags: true, likes: true, contributor: true, createdAt: true },
+      });
+      if (!row) return jsonNoStore({ error: "not found" }, 404);
+      
+      const entry = {
+        id: row.id,
+        title: row.title || "(無題)",
+        episode: row.episode || "",
+        age: null,
+        tags: row.tags || "",
+        imageUrl: row.imageUrl || "",
+        contributor: parseDbContributor(row.contributor) || { id: "guest", name: "ゲスト", avatarUrl: "https://cdn.discordapp.com/embed/avatars/0.png" },
+        likes: row.likes || 0,
+        createdAt: row.createdAt,
+      };
+      
+      return jsonNoStore({ entry }, 200);
     }
 
     // まずBot APIで取得を試行
