@@ -71,15 +71,25 @@ function parseWebhookParts(url?: string | null): { id: string; token: string } |
 /** 投稿保存チャンネルの channel_id を webhook から取る */
 async function fetchWebhookChannelId(): Promise<string | null> {
   const parts = parseWebhookParts(DISCORD_WEBHOOK_URL);
-  if (!parts) return null;
+  if (!parts) {
+    console.log('[entries] fetchWebhookChannelId: no webhook URL parts');
+    return null;
+  }
   try {
+    console.log(`[entries] fetchWebhookChannelId: fetching webhook info`);
     const r = await fetch(`https://discord.com/api/v10/webhooks/${parts.id}/${parts.token}`, {
       cache: "no-store",
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.log(`[entries] fetchWebhookChannelId: webhook fetch failed: ${r.status} ${r.statusText}`);
+      return null;
+    }
     const j = await r.json();
-    return j?.channel_id ?? null;
-  } catch {
+    const channelId = j?.channel_id ?? null;
+    console.log(`[entries] fetchWebhookChannelId: got channel_id: ${channelId}`);
+    return channelId;
+  } catch (err) {
+    console.error('[entries] fetchWebhookChannelId: error:', err);
     return null;
   }
 }
@@ -309,12 +319,16 @@ async function withCommentCounts<T extends { id: string }>(list: T[]) {
 // ---- GET: 一覧
 export async function GET(req: NextRequest) {
   try {
+    console.log('[entries] GET request started');
     const debug = req.nextUrl.searchParams.get("debug");
     const fast = req.nextUrl.searchParams.get("fast") === "1";
     const sync = req.nextUrl.searchParams.get("sync") === "1";
+    console.log(`[entries] params: debug=${debug}, fast=${fast}, sync=${sync}`);
 
     // Bot が無い、または（ローカル開発環境 AND sync=1でない）なら DB fallback
+    console.log(`[entries] DISCORD_BOT_TOKEN exists: ${!!DISCORD_BOT_TOKEN}, NODE_ENV: ${process.env.NODE_ENV}`);
     if (!DISCORD_BOT_TOKEN || (process.env.NODE_ENV === "development" && !sync)) {
+      console.log('[entries] Using DB fallback (no bot token or dev mode without sync)');
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
         select: {
@@ -327,9 +341,13 @@ export async function GET(req: NextRequest) {
       return jsonNoStore({ entries: enriched }, 200);
     }
 
+    console.log('[entries] Using Discord API mode');
     const envChan = DISCORD_CHANNEL_ID || "";
+    console.log(`[entries] envChan: ${envChan}`);
     const hookChan = await fetchWebhookChannelId();
+    console.log(`[entries] hookChan: ${hookChan}`);
     const uniqueChans = Array.from(new Set([envChan, hookChan].filter(Boolean)));
+    console.log(`[entries] uniqueChans: ${uniqueChans.join(', ')}`);
 
     // 取得（limit=50, timeout=2s）
     const urls = uniqueChans.map(
@@ -357,12 +375,15 @@ export async function GET(req: NextRequest) {
     }
 
     // どれも取れなかった → キャッシュ or DB
+    console.log(`[entries] allMsgs.length: ${allMsgs.length}`);
     if (allMsgs.length === 0) {
+      console.log('[entries] No Discord messages found, trying cache or DB');
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] using in-memory cache");
         const enrichedCache = await withCommentCounts(lastGoodEntries);
         return jsonNoStore({ entries: enrichedCache }, 200);
       }
+      console.log('[entries] Falling back to DB');
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
         select: {
@@ -496,6 +517,7 @@ export async function GET(req: NextRequest) {
     return jsonNoStore({ entries: enriched }, 200);
   } catch (e) {
     console.error("GET /api/entries failed", e);
+    console.error("Error stack:", e instanceof Error ? e.stack : 'No stack trace');
     return jsonNoStore({ error: "failed" }, 500);
   }
 }
