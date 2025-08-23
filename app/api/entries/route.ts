@@ -306,14 +306,21 @@ function jsonNoStore(body: any, status = 200) {
 /** 配列に commentCount を付与して返す */
 async function withCommentCounts<T extends { id: string }>(list: T[]) {
   if (!list.length) return list.map((e) => ({ ...e, commentCount: 0 }));
-  const ids = list.map((e) => e.id);
-  const grouped = await prisma.comment.groupBy({
-    by: ["entryId"],
-    _count: { _all: true },
-    where: { entryId: { in: ids } },
-  });
-  const map = new Map(grouped.map((g) => [g.entryId, g._count._all]));
-  return list.map((e) => ({ ...e, commentCount: map.get(e.id) ?? 0 }));
+  
+  try {
+    const ids = list.map((e) => e.id);
+    const grouped = await prisma.comment.groupBy({
+      by: ["entryId"],
+      _count: { _all: true },
+      where: { entryId: { in: ids } },
+    });
+    const map = new Map(grouped.map((g) => [g.entryId, g._count._all]));
+    return list.map((e) => ({ ...e, commentCount: map.get(e.id) ?? 0 }));
+  } catch (dbError) {
+    console.error('[entries] withCommentCounts DB error, returning 0 counts:', dbError);
+    // DB接続失敗時は commentCount: 0 で返す
+    return list.map((e) => ({ ...e, commentCount: 0 }));
+  }
 }
 
 // ---- GET: 一覧
@@ -325,13 +332,13 @@ export async function GET(req: NextRequest) {
     const sync = req.nextUrl.searchParams.get("sync") === "1";
     console.log(`[entries] params: debug=${debug}, fast=${fast}, sync=${sync}`);
 
-    // Bot が無い、または（ローカル開発環境 AND sync=1でない）なら DB fallback
+    // 本番環境でのDiscordBot優先、DB代替処理
     console.log(`[entries] DISCORD_BOT_TOKEN exists: ${!!DISCORD_BOT_TOKEN}, NODE_ENV: ${process.env.NODE_ENV}`);
     console.log(`[entries] Environment variables: DATABASE_URL=${!!process.env.DATABASE_URL}, WEBHOOK_URL=${!!DISCORD_WEBHOOK_URL}`);
     
-    // 本番環境で環境変数が不足している場合の安全な代替処理
-    if (!DISCORD_BOT_TOKEN || (process.env.NODE_ENV === "development" && !sync)) {
-      console.log('[entries] Using DB fallback (no bot token or dev mode without sync)');
+    // ローカル開発環境でsync=1でない場合のみDB優先
+    if (process.env.NODE_ENV === "development" && !sync && !DISCORD_BOT_TOKEN) {
+      console.log('[entries] Local development mode: using DB fallback');
       try {
         const rows = await prisma.entry.findMany({
           orderBy: { createdAt: "desc" },
@@ -345,9 +352,8 @@ export async function GET(req: NextRequest) {
         if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
         return jsonNoStore({ entries: enriched }, 200);
       } catch (dbError) {
-        console.error('[entries] DB fallback failed:', dbError);
-        // 最終的なフォールバック: 空配列を返す
-        return jsonNoStore({ entries: [], error: "Database connection failed" }, 200);
+        console.error('[entries] DB fallback failed, trying Discord:', dbError);
+        // DB失敗時はDiscordに続行
       }
     }
 
@@ -366,9 +372,17 @@ export async function GET(req: NextRequest) {
     const uniqueChans = Array.from(new Set([envChan, hookChan].filter(Boolean)));
     console.log(`[entries] uniqueChans: ${uniqueChans.join(', ')}`);
     
-    // チャンネル情報が取得できない場合はDB代替
+    // チャンネル情報が取得できない場合はDB代替またはエラー
     if (uniqueChans.length === 0) {
-      console.log('[entries] No Discord channels available, falling back to DB');
+      console.log('[entries] No Discord channels available');
+      
+      // BOTトークンがない場合は即座に空配列を返す（DB無し動作）
+      if (!DISCORD_BOT_TOKEN) {
+        console.log('[entries] No Discord bot token - returning empty entries');
+        return jsonNoStore({ entries: [] }, 200);
+      }
+      
+      // DBが利用可能な場合のみフォールバック
       try {
         const rows = await prisma.entry.findMany({
           orderBy: { createdAt: "desc" },
@@ -382,7 +396,7 @@ export async function GET(req: NextRequest) {
         return jsonNoStore({ entries: enriched }, 200);
       } catch (dbError) {
         console.error('[entries] Discord fallback to DB failed:', dbError);
-        return jsonNoStore({ entries: [], error: "All data sources failed" }, 200);
+        return jsonNoStore({ entries: [] }, 200);
       }
     }
 
