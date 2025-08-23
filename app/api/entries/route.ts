@@ -327,27 +327,64 @@ export async function GET(req: NextRequest) {
 
     // Bot が無い、または（ローカル開発環境 AND sync=1でない）なら DB fallback
     console.log(`[entries] DISCORD_BOT_TOKEN exists: ${!!DISCORD_BOT_TOKEN}, NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`[entries] Environment variables: DATABASE_URL=${!!process.env.DATABASE_URL}, WEBHOOK_URL=${!!DISCORD_WEBHOOK_URL}`);
+    
+    // 本番環境で環境変数が不足している場合の安全な代替処理
     if (!DISCORD_BOT_TOKEN || (process.env.NODE_ENV === "development" && !sync)) {
       console.log('[entries] Using DB fallback (no bot token or dev mode without sync)');
-      const rows = await prisma.entry.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true, title: true, episode: true, age: true, tags: true,
-          imageUrl: true, contributor: true, likes: true, createdAt: true,
-        },
-      });
-      const enriched = await withCommentCounts(rows);
-      if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
-      return jsonNoStore({ entries: enriched }, 200);
+      try {
+        const rows = await prisma.entry.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true, title: true, episode: true, age: true, tags: true,
+            imageUrl: true, contributor: true, likes: true, createdAt: true,
+          },
+        });
+        const enriched = await withCommentCounts(rows);
+        console.log(`[entries] DB fallback success: ${enriched.length} entries`);
+        if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
+        return jsonNoStore({ entries: enriched }, 200);
+      } catch (dbError) {
+        console.error('[entries] DB fallback failed:', dbError);
+        // 最終的なフォールバック: 空配列を返す
+        return jsonNoStore({ entries: [], error: "Database connection failed" }, 200);
+      }
     }
 
     console.log('[entries] Using Discord API mode');
     const envChan = DISCORD_CHANNEL_ID || "";
     console.log(`[entries] envChan: ${envChan}`);
-    const hookChan = await fetchWebhookChannelId();
+    
+    let hookChan: string | null = null;
+    try {
+      hookChan = await fetchWebhookChannelId();
+    } catch (webhookError) {
+      console.error('[entries] fetchWebhookChannelId failed:', webhookError);
+    }
     console.log(`[entries] hookChan: ${hookChan}`);
+    
     const uniqueChans = Array.from(new Set([envChan, hookChan].filter(Boolean)));
     console.log(`[entries] uniqueChans: ${uniqueChans.join(', ')}`);
+    
+    // チャンネル情報が取得できない場合はDB代替
+    if (uniqueChans.length === 0) {
+      console.log('[entries] No Discord channels available, falling back to DB');
+      try {
+        const rows = await prisma.entry.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true, title: true, episode: true, age: true, tags: true,
+            imageUrl: true, contributor: true, likes: true, createdAt: true,
+          },
+        });
+        const enriched = await withCommentCounts(rows);
+        console.log(`[entries] Discord fallback to DB success: ${enriched.length} entries`);
+        return jsonNoStore({ entries: enriched }, 200);
+      } catch (dbError) {
+        console.error('[entries] Discord fallback to DB failed:', dbError);
+        return jsonNoStore({ entries: [], error: "All data sources failed" }, 200);
+      }
+    }
 
     // 取得（limit=50, timeout=2s）
     const urls = uniqueChans.map(
