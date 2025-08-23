@@ -557,7 +557,7 @@ export async function GET(req: NextRequest) {
         }
       }
       
-      // DB補完処理
+      // DB補完処理（投稿者情報も優先的に使用）
       for (const e of entries) {
         const db = byDb.get(e.id);
         if (!db) continue;
@@ -566,13 +566,22 @@ export async function GET(req: NextRequest) {
         e.imageUrl = db.imageUrl ?? e.imageUrl;
         e.tags     = db.tags     ?? e.tags;
         e.likes    = typeof db.likes === "number" ? db.likes : e.likes;
+        
+        // 投稿者情報の優先適用（DBにより正確な情報がある）
         const dbC = parseDbContributor(db.contributor);
-        if (dbC) e.contributor = dbC;
+        if (dbC) {
+          e.contributor = dbC;
+        } else if (!e.contributor.name || e.contributor.name === "unknown") {
+          // Discordから投稿者情報を再取得する処理を追加することも可能
+          console.log(`[entries] Missing contributor info for entry: ${e.id}`);
+        }
       }
     }
 
-    // 6) コメント件数を付与（fast=1では0固定）
-    const enriched = await withCommentCounts(entries);
+    // 6) コメント件数を付与（fast=1では0固定にしてパフォーマンス向上）
+    const enriched = fast 
+      ? entries.map(e => ({ ...e, commentCount: 0 }))
+      : await withCommentCounts(entries);
 
     // ✅ キャッシュ更新
     lastGoodEntries = enriched;

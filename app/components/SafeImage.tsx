@@ -59,17 +59,22 @@ export default function SafeImage({
     if (current !== fallbackSrc) setCurrent(fallbackSrc);
   };
 
-  // 画像のプリロード処理
+  // currentURL変更時の再読み込み処理
   React.useEffect(() => {
-    if (src && src.trim() !== "") {
-      const img = new Image();
-      img.src = src;
-      img.onload = () => setLoaded(true);
-      img.onerror = () => {
-        refreshDiscordImage(src);
-      };
-    }
-  }, [src, current, fallbackSrc, entryId, refreshAttempted]);
+    if (!current || current === fallbackSrc) return;
+    
+    const img = new Image();
+    img.src = current;
+    img.onload = () => setLoaded(true);
+    img.onerror = () => {
+      if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted) {
+        refreshDiscordImage(current);
+      } else {
+        setCurrent(fallbackSrc);
+        setLoaded(true);
+      }
+    };
+  }, [current, entryId, refreshAttempted, fallbackSrc]);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
