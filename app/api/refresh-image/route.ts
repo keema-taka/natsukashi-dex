@@ -1,5 +1,6 @@
 // app/api/refresh-image/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -32,9 +33,12 @@ async function getLatestImageFromDiscord(messageId: string): Promise<string | nu
 
       if (r.ok) {
         const json = await r.json();
+        console.log(`[refresh-image] Bot API response for ${messageId}:`, JSON.stringify(json, null, 2));
         // 最新の画像URLを取得
         const imageUrl = json.embeds?.[0]?.image?.url || json.attachments?.[0]?.url;
         if (imageUrl) return imageUrl;
+      } else {
+        console.log(`[refresh-image] Bot API failed for ${messageId}: ${r.status} ${r.statusText}`);
       }
     }
 
@@ -51,8 +55,11 @@ async function getLatestImageFromDiscord(messageId: string): Promise<string | nu
 
       if (r.ok) {
         const json = await r.json();
+        console.log(`[refresh-image] Webhook API response for ${messageId}:`, JSON.stringify(json, null, 2));
         const imageUrl = json.embeds?.[0]?.image?.url || json.attachments?.[0]?.url;
         if (imageUrl) return imageUrl;
+      } else {
+        console.log(`[refresh-image] Webhook API failed for ${messageId}: ${r.status} ${r.statusText}`);
       }
     }
 
@@ -60,6 +67,18 @@ async function getLatestImageFromDiscord(messageId: string): Promise<string | nu
   } catch (error) {
     console.error('[refresh-image] Failed to get latest image:', error);
     return null;
+  }
+}
+
+async function updateEntryImageUrl(messageId: string, newImageUrl: string): Promise<void> {
+  try {
+    await prisma.entry.update({
+      where: { id: messageId },
+      data: { imageUrl: newImageUrl }
+    });
+  } catch (error) {
+    console.error('Failed to update entry imageUrl:', error);
+    throw error;
   }
 }
 
@@ -77,8 +96,19 @@ export async function POST(req: NextRequest) {
 
     // Discord APIから最新の画像URLを取得
     const latestImageUrl = await getLatestImageFromDiscord(messageId);
+    console.log(`[refresh-image] latestImageUrl from Discord: ${latestImageUrl}`);
 
     if (latestImageUrl && latestImageUrl !== currentUrl) {
+      console.log(`[refresh-image] URL changed from ${currentUrl} to ${latestImageUrl}`);
+      
+      // データベースの画像URLも更新
+      try {
+        await updateEntryImageUrl(messageId, latestImageUrl);
+        console.log(`[refresh-image] Updated database for messageId: ${messageId}`);
+      } catch (dbError) {
+        console.error('[refresh-image] Failed to update database:', dbError);
+      }
+      
       return NextResponse.json({ 
         success: true, 
         newImageUrl: latestImageUrl,
@@ -86,6 +116,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    console.log('[refresh-image] No URL change detected or failed to get new URL');
     return NextResponse.json({ 
       success: true, 
       imageUrl: currentUrl,
