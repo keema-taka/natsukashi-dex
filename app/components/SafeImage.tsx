@@ -22,15 +22,17 @@ export default function SafeImage({
   const [current, setCurrent] = React.useState(initial);
   const [loaded, setLoaded] = React.useState(false);
   const [refreshAttempted, setRefreshAttempted] = React.useState(false);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   // Discord画像URLの更新を試行
-  const refreshDiscordImage = async (originalUrl: string) => {
-    if (!entryId || refreshAttempted) return;
+  const refreshDiscordImage = React.useCallback(async (originalUrl: string) => {
+    if (!entryId || refreshAttempted || isRefreshing) return;
     
     // Discord CDNのURLかチェック
     if (!originalUrl.includes('cdn.discordapp.com')) return;
     
     setRefreshAttempted(true);
+    setIsRefreshing(true);
     
     try {
       const response = await fetch('/api/refresh-image', {
@@ -47,34 +49,41 @@ export default function SafeImage({
         if (data.success && data.refreshed && data.newImageUrl) {
           console.log(`[SafeImage] Refreshed image URL for ${entryId}`);
           setCurrent(data.newImageUrl);
-          setLoaded(false); // リロードのため
           return;
         }
       }
     } catch (error) {
       console.error('[SafeImage] Failed to refresh image URL:', error);
+    } finally {
+      setIsRefreshing(false);
     }
     
     // リフレッシュに失敗した場合はフォールバック
-    if (current !== fallbackSrc) setCurrent(fallbackSrc);
-  };
+    setCurrent(fallbackSrc);
+  }, [entryId, refreshAttempted, isRefreshing, fallbackSrc]);
 
   // currentURL変更時の再読み込み処理
   React.useEffect(() => {
-    if (!current || current === fallbackSrc) return;
+    if (!current || current === fallbackSrc || isRefreshing) return;
     
     const img = new Image();
     img.src = current;
     img.onload = () => setLoaded(true);
     img.onerror = () => {
-      if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted) {
+      if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted && !isRefreshing) {
         refreshDiscordImage(current);
       } else {
         setCurrent(fallbackSrc);
         setLoaded(true);
       }
     };
-  }, [current, entryId, refreshAttempted, fallbackSrc]);
+  }, [current, entryId, refreshAttempted, fallbackSrc, isRefreshing, refreshDiscordImage]);
+
+  const handleImageError = React.useCallback(() => {
+    if (current !== fallbackSrc) {
+      setCurrent(fallbackSrc);
+    }
+  }, [current, fallbackSrc]);
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -85,13 +94,7 @@ export default function SafeImage({
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       onLoad={() => setLoaded(true)}
-      onError={() => {
-        if (src && src.includes('cdn.discordapp.com') && entryId && !refreshAttempted) {
-          refreshDiscordImage(src);
-        } else if (current !== fallbackSrc) {
-          setCurrent(fallbackSrc);
-        }
-      }}
+      onError={handleImageError}
     />
   );
 }
