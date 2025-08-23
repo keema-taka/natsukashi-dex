@@ -1,6 +1,7 @@
 // app/api/entries/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { validateImageUrls } from "@/lib/imageValidator";
 
 let lastGoodEntries: any[] | null = null;
 let lastGoodAt = 0;
@@ -11,6 +12,25 @@ export function clearEntriesCache() {
   lastGoodEntries = null;
   lastGoodAt = 0;
   console.log('[entries] Cache cleared');
+}
+
+// 画像URL検証を含むエントリ後処理
+async function validateEntriesImages(entries: any[]): Promise<any[]> {
+  if (!entries.length) return entries;
+  
+  console.log(`[entries] Validating ${entries.length} image URLs`);
+  
+  // 画像URLを抽出
+  const imageUrls = entries.map(entry => entry.imageUrl);
+  
+  // 並行して画像URLを検証
+  const validatedUrls = await validateImageUrls(imageUrls);
+  
+  // 検証結果を適用
+  return entries.map((entry, index) => ({
+    ...entry,
+    imageUrl: validatedUrls[index]
+  }));
 }
 
 export const runtime = "nodejs";
@@ -357,7 +377,8 @@ export async function GET(req: NextRequest) {
         const enriched = await withCommentCounts(rows);
         console.log(`[entries] DB fallback success: ${enriched.length} entries`);
         if (debug === "1") console.log("[entries][debug] prisma.count =", enriched.length);
-        return jsonNoStore({ entries: enriched }, 200);
+        const validatedEntries = await validateEntriesImages(enriched);
+    return jsonNoStore({ entries: validatedEntries }, 200);
       } catch (dbError) {
         console.error('[entries] DB fallback failed, trying Discord:', dbError);
         // DB失敗時はDiscordに続行
@@ -400,7 +421,8 @@ export async function GET(req: NextRequest) {
         });
         const enriched = await withCommentCounts(rows);
         console.log(`[entries] Discord fallback to DB success: ${enriched.length} entries`);
-        return jsonNoStore({ entries: enriched }, 200);
+        const validatedEntries = await validateEntriesImages(enriched);
+    return jsonNoStore({ entries: validatedEntries }, 200);
       } catch (dbError) {
         console.error('[entries] Discord fallback to DB failed:', dbError);
         return jsonNoStore({ entries: [] }, 200);
@@ -439,7 +461,8 @@ export async function GET(req: NextRequest) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] using in-memory cache");
         const enrichedCache = await withCommentCounts(lastGoodEntries);
-        return jsonNoStore({ entries: enrichedCache }, 200);
+        const validatedCache = await validateEntriesImages(enrichedCache);
+        return jsonNoStore({ entries: validatedCache }, 200);
       }
       console.log('[entries] Falling back to DB');
       const rows = await prisma.entry.findMany({
@@ -452,7 +475,8 @@ export async function GET(req: NextRequest) {
       const enrichedDb = await withCommentCounts(rows);
       if (debug === "1")
         console.warn("[entries][debug] discord empty -> fallback to DB:", enrichedDb.length);
-      return jsonNoStore({ entries: enrichedDb }, 200);
+      const validatedDb = await validateEntriesImages(enrichedDb);
+      return jsonNoStore({ entries: validatedDb }, 200);
     }
 
     // 重複除去 + 新しい順
@@ -510,7 +534,8 @@ export async function GET(req: NextRequest) {
       if (lastGoodEntries && Date.now() - lastGoodAt < CACHE_TTL_MS) {
         if (debug === "1") console.warn("[entries][debug] mine=0 -> use cache");
         const enrichedCache = await withCommentCounts(lastGoodEntries);
-        return jsonNoStore({ entries: enrichedCache }, 200);
+        const validatedCache = await validateEntriesImages(enrichedCache);
+        return jsonNoStore({ entries: validatedCache }, 200);
       }
       const rows = await prisma.entry.findMany({
         orderBy: { createdAt: "desc" },
@@ -521,7 +546,8 @@ export async function GET(req: NextRequest) {
       });
       const enrichedDb = await withCommentCounts(rows);
       if (debug === "1") console.warn("[entries][debug] mine=0 -> use DB:", enrichedDb.length);
-      return jsonNoStore({ entries: enrichedDb }, 200);
+      const validatedDb = await validateEntriesImages(enrichedDb);
+      return jsonNoStore({ entries: validatedDb }, 200);
     }
 
     // 4) 変換
@@ -594,7 +620,8 @@ export async function GET(req: NextRequest) {
     lastGoodEntries = enriched;
     lastGoodAt = Date.now();
 
-    return jsonNoStore({ entries: enriched }, 200);
+    const validatedEntries = await validateEntriesImages(enriched);
+    return jsonNoStore({ entries: validatedEntries }, 200);
   } catch (e) {
     console.error("GET /api/entries failed", e);
     console.error("Error stack:", e instanceof Error ? e.stack : 'No stack trace');
