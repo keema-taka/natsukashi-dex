@@ -105,6 +105,14 @@ export async function POST(req: NextRequest) {
       try {
         await updateEntryImageUrl(messageId, latestImageUrl);
         console.log(`[refresh-image] Updated database for messageId: ${messageId}`);
+        
+        // entriesキャッシュをクリア
+        try {
+          const { clearEntriesCache } = await import('../entries/route');
+          clearEntriesCache();
+        } catch (cacheError) {
+          console.error('[refresh-image] Failed to clear entries cache:', cacheError);
+        }
       } catch (dbError) {
         console.error('[refresh-image] Failed to update database:', dbError);
       }

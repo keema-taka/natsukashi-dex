@@ -4,7 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 let lastGoodEntries: any[] | null = null;
 let lastGoodAt = 0;
-const CACHE_TTL_MS = 60 * 1000; // 1分
+const CACHE_TTL_MS = 10 * 1000; // 10秒に短縮
+
+// キャッシュクリア用のエクスポート関数
+export function clearEntriesCache() {
+  lastGoodEntries = null;
+  lastGoodAt = 0;
+  console.log('[entries] Cache cleared');
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
