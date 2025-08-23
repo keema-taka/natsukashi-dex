@@ -464,7 +464,20 @@ export async function GET(req: NextRequest) {
       
       // アップロード専用マーカーを含むメッセージは除外
       const isUploadOnly = typeof m.content === "string" && m.content.includes("[natsukashi-dex-upload]");
-      return !isUploadOnly;
+      if (isUploadOnly) return false;
+      
+      // embedが空でcontentも意味のない投稿を除外
+      const embed = m.embeds?.[0];
+      const hasTitle = embed?.title && embed.title.trim() && embed.title !== "(無題)";
+      const hasEpisode = embed?.description && embed.description.trim();
+      const hasValidContent = hasTitle || hasEpisode;
+      
+      if (!hasValidContent) {
+        console.log(`[entries] Filtering out empty content message: ${m.id}`);
+        return false;
+      }
+      
+      return true;
     });
 
     // 2) 中身が薄いものを webhook 認証で補完

@@ -68,8 +68,11 @@ export async function PATCH(
     }
 
     // 既存のいいね有無（複合ユニーク）
-    const existing = await prisma.like.findUnique({
-      where: { entryId_userId: { entryId: id, userId } },
+    const existing = await prisma.like.findFirst({
+      where: { 
+        entryId: id, 
+        userId: userId 
+      },
       select: { id: true },
     });
 
@@ -97,8 +100,8 @@ export async function PATCH(
     } else {
       const newCount = await prisma.$transaction(async (tx) => {
         if (existing) {
-          await tx.like.delete({
-            where: { entryId_userId: { entryId: id, userId } },
+          await tx.like.deleteMany({
+            where: { entryId: id, userId: userId },
           });
         }
         const count = await tx.like.count({ where: { entryId: id } });
