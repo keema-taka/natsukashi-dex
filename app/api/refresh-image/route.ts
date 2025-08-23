@@ -65,9 +65,13 @@ async function getLatestImageFromDiscord(messageId: string): Promise<string | nu
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('[refresh-image] POST request received');
+    
     const { messageId, currentUrl } = await req.json();
+    console.log(`[refresh-image] messageId: ${messageId}, currentUrl: ${currentUrl}`);
 
     if (!messageId) {
+      console.log('[refresh-image] Missing messageId');
       return NextResponse.json({ error: "messageId is required" }, { status: 400 });
     }
 
