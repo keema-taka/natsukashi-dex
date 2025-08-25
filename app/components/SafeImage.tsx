@@ -62,22 +62,25 @@ export default function SafeImage({
     setCurrent(fallbackSrc);
   }, [entryId, refreshAttempted, isRefreshing, fallbackSrc]);
 
-  // currentURL変更時の再読み込み処理
+  // 積極的な画像チェック（priority=trueかDiscordの画像URLの場合）
   React.useEffect(() => {
-    if (!current || current === fallbackSrc || isRefreshing) return;
+    if (!current || current === fallbackSrc || isRefreshing || refreshAttempted) return;
     
-    const img = new Image();
-    img.src = current;
-    img.onload = () => setLoaded(true);
-    img.onerror = () => {
-      if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted && !isRefreshing) {
-        refreshDiscordImage(current);
-      } else {
-        setCurrent(fallbackSrc);
-        setLoaded(true);
-      }
-    };
-  }, [current, entryId, refreshAttempted, fallbackSrc, isRefreshing, refreshDiscordImage]);
+    // Discord画像は常にチェック、その他はpriorityの場合のみ
+    if (current.includes('cdn.discordapp.com') || priority) {
+      const img = new Image();
+      img.src = current;
+      img.onload = () => setLoaded(true);
+      img.onerror = () => {
+        if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted && !isRefreshing) {
+          refreshDiscordImage(current);
+        } else {
+          setCurrent(fallbackSrc);
+          setLoaded(true);
+        }
+      };
+    }
+  }, [current, entryId, refreshAttempted, fallbackSrc, isRefreshing, refreshDiscordImage, priority]);
 
   const handleImageError = React.useCallback(() => {
     if (current !== fallbackSrc) {
