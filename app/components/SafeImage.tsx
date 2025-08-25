@@ -31,6 +31,7 @@ export default function SafeImage({
     // Discord CDNのURLかチェック
     if (!originalUrl.includes('cdn.discordapp.com')) return;
     
+    console.log(`[SafeImage] Attempting to refresh Discord image for entry ${entryId}, URL: ${originalUrl}`);
     setRefreshAttempted(true);
     setIsRefreshing(true);
     
@@ -46,11 +47,14 @@ export default function SafeImage({
 
       if (response.ok) {
         const data = await response.json();
+        console.log(`[SafeImage] Refresh response for ${entryId}:`, data);
         if (data.success && data.refreshed && data.newImageUrl) {
-          console.log(`[SafeImage] Refreshed image URL for ${entryId}`);
+          console.log(`[SafeImage] Successfully refreshed image URL for ${entryId}: ${data.newImageUrl}`);
           setCurrent(data.newImageUrl);
           return;
         }
+      } else {
+        console.log(`[SafeImage] Refresh API failed for ${entryId}: ${response.status}`);
       }
     } catch (error) {
       console.error('[SafeImage] Failed to refresh image URL:', error);
@@ -59,6 +63,7 @@ export default function SafeImage({
     }
     
     // リフレッシュに失敗した場合はフォールバック
+    console.log(`[SafeImage] Using fallback image for ${entryId}`);
     setCurrent(fallbackSrc);
   }, [entryId, refreshAttempted, isRefreshing, fallbackSrc]);
 
@@ -68,10 +73,15 @@ export default function SafeImage({
     
     // Discord画像は常にチェック、その他はpriorityの場合のみ
     if (current.includes('cdn.discordapp.com') || priority) {
+      console.log(`[SafeImage] Checking image for entryId: ${entryId}, URL: ${current}, priority: ${priority}`);
       const img = new Image();
       img.src = current;
-      img.onload = () => setLoaded(true);
+      img.onload = () => {
+        console.log(`[SafeImage] Image loaded successfully for ${entryId}`);
+        setLoaded(true);
+      };
       img.onerror = () => {
+        console.log(`[SafeImage] Image failed to load for ${entryId}, URL: ${current}`);
         if (current.includes('cdn.discordapp.com') && entryId && !refreshAttempted && !isRefreshing) {
           refreshDiscordImage(current);
         } else {
