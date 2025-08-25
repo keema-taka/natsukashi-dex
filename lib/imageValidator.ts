@@ -8,6 +8,12 @@ const VALIDATION_CACHE_TTL = 5 * 60 * 1000; // 5分
 export async function validateImageUrl(url: string): Promise<string> {
   if (!url || url === FALLBACK_IMG) return url;
 
+  // クライアントサイドのSafeImageコンポーネントに画像検証を任せる
+  // サーバーサイドでの検証を無効化してそのままURLを返す
+  return url;
+
+  // 以下のコードは無効化（クライアントサイドでの検証に任せる）
+  /*
   // Discord CDN URLでない場合はそのまま返す
   if (!url.includes('cdn.discordapp.com')) return url;
 
@@ -47,6 +53,7 @@ export async function validateImageUrl(url: string): Promise<string> {
     
     return FALLBACK_IMG;
   }
+  */
 }
 
 // 複数の画像URLを並行して検証
