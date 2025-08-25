@@ -77,11 +77,13 @@ export default function EntryCard({
   currentUserId: _currentUserId, // 将来用 
   onDeleted,
   forceKebab: _forceKebab,     // 受け取りだけ
+  priority = false,            // 画像の優先読み込み設定
 }: {
   entry: Entry;
   currentUserId?: string;
   onDeleted?: (id: string) => void;
   forceKebab?: boolean;
+  priority?: boolean;          // 画像の優先読み込み設定
 }) {
   const isRealId =
     entry.id && !String(entry.id).startsWith('tmp-') && String(entry.id).length > 12;
@@ -154,6 +156,7 @@ export default function EntryCard({
               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
               fallbackSrc={FALLBACK_IMG}
               entryId={entry.id}
+              priority={priority}
             />
           </Link>
         ) : (
@@ -163,6 +166,7 @@ export default function EntryCard({
             className="w-full h-full object-cover"
             fallbackSrc={FALLBACK_IMG}
             entryId={entry.id}
+            priority={priority}
           />
         )}
       </div>

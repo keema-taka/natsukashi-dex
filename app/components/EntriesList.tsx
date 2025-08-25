@@ -183,13 +183,14 @@ export default function EntriesList(props: {
 
   return (
     <section className="container-page pb-16 pt-4 space-y-8">
-      {filtered.map((e) => (
+      {filtered.map((e, index) => (
         <EntryCard
           key={e.id}
           entry={e}
           currentUserId={currentUserId}
           onDeleted={optimisticRemove}
           forceKebab
+          priority={index < 6}
         />
       ))}
     </section>
