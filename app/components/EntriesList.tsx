@@ -65,7 +65,7 @@ export default function EntriesList(props: {
   const { data, error, isLoading, mutate } = useSWR<{ entries: any[] }>(
     "/api/entries?fast=1",
     fetcher,
-    { 
+    {
       refreshInterval: refreshIntervalMs || 5000, // デフォルト5秒でリフレッシュ
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -182,7 +182,7 @@ export default function EntriesList(props: {
   }
 
   return (
-    <section className="container-page pb-16 pt-4 space-y-8">
+    <section className="container-page pb-16 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {filtered.map((e, index) => (
         <EntryCard
           key={e.id}
