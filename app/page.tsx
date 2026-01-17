@@ -31,7 +31,7 @@ function HeroSection({ user, onOpenCreate }: { user: Contributor | null; onOpenC
           <div className="mac-controls">
             <div className="mac-close" />
           </div>
-          <div className="mac-title">About なつかし図鑑</div>
+          <div className="mac-title">About 平成レトロ図鑑</div>
         </div>
         <div className="mac-content" style={{ textAlign: 'center', padding: '32px 24px' }}>
           {/* アイコン */}
@@ -42,7 +42,7 @@ function HeroSection({ user, onOpenCreate }: { user: Contributor | null; onOpenC
           <h2 className="hero-title" style={{
             marginBottom: '8px',
           }}>
-            なつかし図鑑
+            平成レトロ図鑑
           </h2>
 
           <p style={{

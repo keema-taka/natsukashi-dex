@@ -66,14 +66,14 @@ export async function generateMetadata(
 
   if (!row) {
     return {
-      title: "投稿が見つかりませんでした | レトロ図鑑",
+      title: "投稿が見つかりませんでした | 平成レトロ図鑑",
       description: "指定された投稿は存在しません。",
       robots: { index: false },
     };
   }
 
   const base = await resolveBaseUrl(); // ← await を追加
-  const title = `${row.title} | レトロ図鑑`;
+  const title = `${row.title} | 平成レトロ図鑑`;
   const description = row.episode?.slice(0, 120) || "平成レトロの思い出を集めるみんなの図鑑。";
   const image = absolutize((row as any).imageUrl, base) || FALLBACK_IMG;
   const url = `${base}/entries/${row.id}`;

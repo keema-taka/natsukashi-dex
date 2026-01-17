@@ -5,8 +5,20 @@ import Providers from "./providers";
 import HeaderAuth from "./HeaderAuth";
 
 export const metadata: Metadata = {
-  title: "レトロ図鑑 - 平成の思い出コレクション",
-  description: "平成レトロの思い出を集める図鑑。ゲーム、アニメ、おもちゃ、お菓子...みんなで懐かしいアイテムを登録しよう。",
+  title: "平成レトロ図鑑 | 平成の思い出コレクション",
+  description: "平成の懐かしいアイテムや思い出をみんなで集めるデジタル図鑑。",
+  images: [
+    {
+      url: "https://natsukashi-dex.vercel.app/ogp.png", // あれば
+      width: 1200,
+      height: 630,
+    },
+  ],
+  twitter: {
+    card: "summary_large_image",
+    title: "平成レトロ図鑑",
+    description: "平成の懐かしいアイテムや思い出をみんなで集めるデジタル図鑑。",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -21,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           {/* Mac風メニューバー - System 7 */}
           <header className="menubar">
-            <span className="menubar-logo">なつかし図鑑</span>
+            <span className="menubar-logo">平成レトロ図鑑</span>
             <nav style={{ display: 'flex', gap: '0' }}>
               <span className="menubar-item">File</span>
               <span className="menubar-item">Edit</span>
@@ -38,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* フッター */}
           <footer className="mac-footer">
             <p className="mac-footer-text">
-              © {new Date().getFullYear()} なつかし図鑑 — 平成の思い出をみんなで集めよう ✨
+              © {new Date().getFullYear()} 平成レトロ図鑑 — 平成の思い出をみんなで集めよう ✨
             </p>
           </footer>
         </Providers>
