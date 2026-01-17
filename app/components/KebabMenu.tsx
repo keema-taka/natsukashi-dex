@@ -51,9 +51,18 @@ export default function KebabMenu({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
-        className="w-8 h-8 rounded-full bg-white/95 border border-neutral-200 shadow hover:bg-white"
+        className="mac-button"
+        style={{
+          width: '28px',
+          height: '28px',
+          padding: 0,
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -64,11 +73,39 @@ export default function KebabMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-36 rounded-xl border bg-white shadow-lg overflow-hidden z-20"
+          className="animate-window"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: '100%',
+            marginTop: '4px',
+            width: '120px',
+            background: 'var(--window-bg)',
+            border: '1px solid var(--window-border-dark)',
+            boxShadow: '2px 2px 8px rgba(0,0,0,0.2)',
+            zIndex: 20
+          }}
         >
           <button
-            className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50"
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '8px 12px',
+              fontSize: '12px',
+              background: 'var(--window-bg)',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'background 0.1s'
+            }}
             onClick={confirmDelete}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'var(--accent-blue)';
+              e.currentTarget.style.color = 'white';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'var(--window-bg)';
+              e.currentTarget.style.color = 'var(--text-primary)';
+            }}
           >
             削除する
           </button>

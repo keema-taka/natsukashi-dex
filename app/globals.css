@@ -2,159 +2,576 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Vars ===== */
-/* Force HMR */
+/* ==========================================
+   なつかし図鑑 - Classic Mac System 7 Style
+   Authentic Retro Computing Aesthetic
+   ========================================== */
+
+/* === フォント（ギークでレトロ）=== */
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Silkscreen:wght@400;700&family=DotGothic16&display=swap');
+
 :root {
-  --ink: #1a1a1a;
-  --paper: #fffdf7;
-  --retro-green: #2f7d32;
-  --popeye-yellow: #FFF500;
-  --popeye-red: #FF4444;
-  --popeye-blue: #4488FF;
-  --popeye-cream: #FFFAFA;
+  /* ===== System 7 Platinum Palette ===== */
+  --platinum: #CCCCCC;
+  --platinum-light: #DDDDDD;
+  --platinum-dark: #999999;
+  --platinum-darker: #666666;
+
+  /* Classic Mac Beige */
+  --mac-beige: #E8E4D4;
+  --mac-beige-light: #F5F3EB;
+  --mac-beige-dark: #C8C4B4;
+
+  /* Window Colors - System 7 */
+  --window-bg: #FFFFFF;
+  --window-title-active: linear-gradient(180deg, #000000 0%, #000000 50%, #000000 100%);
+  --window-border-light: #FFFFFF;
+  --window-border-dark: #000000;
+  --window-border-mid: #808080;
+
+  /* Text - High Contrast */
+  --text-primary: #000000;
+  --text-secondary: #333333;
+  --text-muted: #666666;
+  --text-inverse: #FFFFFF;
+
+  /* ===== Classic Mac Accent Colors ===== */
+  --accent-blue: #0000CC;
+  --accent-purple: #660099;
+  --selection-blue: #3366FF;
+
+  /* Desktop Pattern - System 7 */
+  --desktop-bg: #6699AA;
+
+  /* Pixel Shadow */
+  --pixel-shadow: 2px 2px 0 #000000;
+  --pixel-shadow-inset: inset 1px 1px 0 #FFFFFF, inset -1px -1px 0 #808080;
 }
 
-/* ===== Base ===== */
+/* === ベーススタイル === */
+html {
+  font-size: 13px;
+}
+
 body {
-  background-color: var(--popeye-cream);
-  color: var(--ink);
-  font-family: "M PLUS Rounded 1c", "Pixelify Sans", sans-serif;
+  font-family: 'DotGothic16', 'VT323', 'Chicago', 'Geneva', monospace;
+  background: var(--desktop-bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  /* Classic dithered pattern */
+  background-image:
+    repeating-linear-gradient(0deg,
+      transparent,
+      transparent 1px,
+      rgba(0, 0, 0, 0.05) 1px,
+      rgba(0, 0, 0, 0.05) 2px),
+    repeating-linear-gradient(90deg,
+      transparent,
+      transparent 1px,
+      rgba(0, 0, 0, 0.05) 1px,
+      rgba(0, 0, 0, 0.05) 2px);
+  image-rendering: pixelated;
 }
 
-.container-page {
-  @apply max-w-4xl mx-auto px-4;
+/* === Classic Mac 3D Border === */
+.mac-border-outset {
+  border: 2px solid;
+  border-color: var(--window-border-light) var(--window-border-dark) var(--window-border-dark) var(--window-border-light);
 }
 
-/* sticky header */
-.header-retro {
+.mac-border-inset {
+  border: 2px solid;
+  border-color: var(--window-border-dark) var(--window-border-light) var(--window-border-light) var(--window-border-dark);
+}
+
+/* === メニューバー（System 7 Style）=== */
+.menubar {
+  background: var(--platinum-light);
+  border-bottom: 2px solid var(--window-border-dark);
+  padding: 2px 8px;
+  display: flex;
+  align-items: center;
+  height: 22px;
   position: sticky;
   top: 0;
-  z-index: 40;
-  background: var(--popeye-yellow);
-  color: var(--ink);
-  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 1);
-  border-bottom: 3px solid var(--ink);
+  z-index: 100;
+  box-shadow: inset 0 -1px 0 var(--platinum-dark);
 }
 
-/* ===== Cards / Stickers ===== */
-.sticker {
-  border-radius: 24px;
-  border: 3px solid var(--ink);
-  background: #fff;
-  box-shadow: 4px 4px 0 0 var(--ink);
-  transition: transform .15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .15s cubic-bezier(0.34, 1.56, 0.64, 1);
+.menubar-item {
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 1px 10px;
+  cursor: default;
+  user-select: none;
 }
 
-.sticker:hover {
-  transform: translate(-2px, -2px) rotate(-1deg);
-  box-shadow: 8px 8px 0 0 var(--ink);
+.menubar-item:hover {
+  background: var(--window-border-dark);
+  color: var(--text-inverse);
 }
 
-.rt {
-  transform: rotate(var(--r, 0deg));
+.menubar-logo {
+  font-family: 'Silkscreen', 'VT323', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.rt:hover {
-  transform: rotate(0deg) translate(-2px, -2px);
+.menubar-logo::before {
+  content: '🍎';
+  font-size: 12px;
 }
 
-/* hero */
-.hero-card {
-  background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 32px;
-  box-shadow: 8px 8px 0 0 var(--ink);
-  position: relative;
+/* === Classic Mac Window === */
+.mac-window {
+  background: var(--window-bg);
+  border: 2px solid var(--window-border-dark);
+  box-shadow: var(--pixel-shadow);
   overflow: hidden;
 }
 
-/* ===== Pills / Buttons ===== */
-.pill {
-  @apply px-3 py-1 text-sm font-bold rounded-full bg-white border-2 border-black shadow-[2px_2px_0_0_#000];
-
+/* タイトルバー（System 7 Stripes）*/
+.mac-titlebar {
+  background: var(--platinum);
+  padding: 3px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 2px solid var(--window-border-dark);
+  min-height: 20px;
+  position: relative;
 }
 
-.btn-retro {
-  @apply px-6 py-3 rounded-full font-bold text-lg bg-[#FF4444] text-white border-2 border-black shadow-[4px_4px_0_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_0_#000] transition-all;
-}
-
-.btn-retro-outline {
-  @apply px-6 py-3 rounded-full font-bold text-lg border-2 border-black bg-white text-black shadow-[4px_4px_0_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_0_#000] transition-all;
-}
-
-.btn-retro-outline:hover {
-  background: var(--popeye-yellow);
-}
-
-/* ===== FAB ===== */
-.fab {
-  position: fixed;
-  right: 24px;
-  bottom: max(24px, env(safe-area-inset-bottom));
-  width: 64px;
-  height: 64px;
-  border-radius: 9999px;
-  background: var(--popeye-blue);
-  color: #fff;
-  font-size: 36px;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  border: 3px solid var(--ink);
-  box-shadow: 4px 4px 0 0 var(--ink);
-  transition: transform .15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.fab:active {
-  transform: scale(.95) translate(2px, 2px);
-  box-shadow: 2px 2px 0 0 var(--ink);
-}
-
-/* ===== Animations ===== */
-@keyframes pop {
-  0% {
-    transform: scale(1)
-  }
-
-  50% {
-    transform: scale(1.25)
-  }
-
-  100% {
-    transform: scale(1)
-  }
-}
-
-.like-pop {
-  animation: pop .35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes burst {
-  0% {
-    opacity: 0;
-    transform: scale(.5) translateY(0)
-  }
-
-  60% {
-    opacity: 1
-  }
-
-  100% {
-    opacity: 0;
-    transform: scale(1.6) translateY(-10px)
-  }
-}
-
-.burst {
+/* 横縞パターン（アクティブウィンドウ）*/
+.mac-titlebar::after {
+  content: '';
   position: absolute;
-  right: -2px;
-  top: -2px;
-  pointer-events: none;
-  font-size: 14px;
-  animation: burst .45s ease-out forwards;
+  left: 24px;
+  right: 24px;
+  top: 4px;
+  bottom: 4px;
+  background: repeating-linear-gradient(0deg,
+      var(--window-border-dark) 0px,
+      var(--window-border-dark) 1px,
+      var(--platinum-light) 1px,
+      var(--platinum-light) 3px);
+  z-index: 0;
 }
 
-/* ===== Utils ===== */
+/* ウィンドウコントロール - Classic Close Box */
+.mac-controls {
+  display: flex;
+  gap: 0;
+  z-index: 1;
+}
+
+.mac-close {
+  width: 13px;
+  height: 11px;
+  border: 1px solid var(--window-border-dark);
+  background: var(--platinum);
+  box-shadow: var(--pixel-shadow-inset);
+  cursor: pointer;
+}
+
+.mac-close:hover {
+  background: var(--platinum-dark);
+}
+
+.mac-close:active {
+  box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #FFFFFF;
+}
+
+/* Zoom/Collapse boxes removed for authenticity */
+.mac-minimize,
+.mac-maximize {
+  display: none;
+}
+
+.mac-title {
+  flex: 1;
+  text-align: center;
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  z-index: 1;
+  background: var(--platinum);
+  padding: 0 8px;
+}
+
+/* ウィンドウコンテンツ */
+.mac-content {
+  padding: 16px;
+  background: var(--window-bg);
+}
+
+/* === ボタン（System 7 Push Button）=== */
+.mac-button {
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  font-weight: 400;
+  padding: 4px 16px;
+  background: var(--platinum);
+  border: 2px solid;
+  border-color: var(--window-border-light) var(--window-border-dark) var(--window-border-dark) var(--window-border-light);
+  box-shadow: var(--pixel-shadow-inset);
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.mac-button:hover {
+  background: var(--platinum-light);
+}
+
+.mac-button:active {
+  border-color: var(--window-border-dark) var(--window-border-light) var(--window-border-light) var(--window-border-dark);
+  box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #FFFFFF;
+}
+
+.mac-button-primary {
+  background: var(--window-border-dark);
+  color: var(--text-inverse);
+  border: 3px solid var(--window-border-dark);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.mac-button-primary:hover {
+  background: #333333;
+}
+
+.mac-button-primary:active {
+  box-shadow: none;
+  transform: translate(1px, 1px);
+}
+
+/* === 入力フィールド === */
+.mac-input {
+  font-family: 'DotGothic16', 'Geneva', monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: white;
+  border: 2px solid;
+  border-color: var(--window-border-dark) var(--window-border-light) var(--window-border-light) var(--window-border-dark);
+  outline: none;
+}
+
+.mac-input:focus {
+  outline: 2px solid var(--selection-blue);
+  outline-offset: 1px;
+}
+
+.mac-select {
+  font-family: 'DotGothic16', 'Geneva', monospace;
+  font-size: 12px;
+  padding: 3px 20px 3px 6px;
+  background: var(--platinum);
+  border: 2px solid;
+  border-color: var(--window-border-light) var(--window-border-dark) var(--window-border-dark) var(--window-border-light);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%23000' d='M0 2h8L4 6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+}
+
+/* === カード（Finder Icon Style）=== */
+.mac-card {
+  background: var(--window-bg);
+  border: 2px solid var(--window-border-dark);
+  box-shadow: var(--pixel-shadow);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.mac-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #000000;
+}
+
+.mac-card-image {
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  border-bottom: 2px solid var(--window-border-dark);
+  background: var(--platinum);
+  image-rendering: auto;
+}
+
+.mac-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mac-card-body {
+  padding: 10px;
+  background: var(--window-bg);
+}
+
+.mac-card-title {
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.mac-card-text {
+  font-family: 'DotGothic16', 'Geneva', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* === タグ/バッジ（Pixel Style）=== */
+.mac-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-family: 'DotGothic16', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  background: var(--platinum);
+  border: 1px solid var(--window-border-dark);
+}
+
+.mac-tag-blue {
+  background: #99CCFF;
+  border-color: #3366CC;
+  color: #000066;
+}
+
+.mac-tag-purple {
+  background: #CC99FF;
+  border-color: #6633CC;
+  color: #330066;
+}
+
+.mac-tag-green {
+  background: #99FF99;
+  border-color: #33CC33;
+  color: #003300;
+}
+
+.mac-tag-orange {
+  background: #FFCC99;
+  border-color: #CC6633;
+  color: #663300;
+}
+
+/* === コンテナ === */
+.container-mac {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+/* === グリッド === */
+.mac-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .mac-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === スクロールバー（Classic Mac）=== */
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--platinum);
+  border-left: 1px solid var(--window-border-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--platinum);
+  border: 1px solid;
+  border-color: var(--window-border-light) var(--window-border-dark) var(--window-border-dark) var(--window-border-light);
+}
+
+::-webkit-scrollbar-button {
+  background: var(--platinum);
+  border: 1px solid;
+  border-color: var(--window-border-light) var(--window-border-dark) var(--window-border-dark) var(--window-border-light);
+  height: 16px;
+}
+
+/* === アバター === */
+.mac-avatar {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--window-border-dark);
+  object-fit: cover;
+  image-rendering: auto;
+}
+
+/* === モーダル/ダイアログ（System 7 Alert）=== */
+.mac-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 16px;
+}
+
+.mac-modal {
+  background: var(--platinum);
+  border: 2px solid var(--window-border-dark);
+  box-shadow: var(--pixel-shadow);
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mac-modal-header {
+  background: var(--platinum);
+  padding: 6px 10px;
+  border-bottom: 2px solid var(--window-border-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.mac-modal-header::after {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 3px;
+  bottom: 3px;
+  background: repeating-linear-gradient(0deg,
+      var(--window-border-dark) 0px,
+      var(--window-border-dark) 1px,
+      var(--platinum-light) 1px,
+      var(--platinum-light) 3px);
+  z-index: 0;
+}
+
+.mac-modal-title {
+  flex: 1;
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  z-index: 1;
+  background: var(--platinum);
+  padding: 0 8px;
+}
+
+.mac-modal-body {
+  padding: 20px;
+  background: var(--window-bg);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.mac-modal-footer {
+  padding: 12px 20px;
+  background: var(--platinum);
+  border-top: 1px solid var(--platinum-dark);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* === フォーム === */
+.mac-form-group {
+  margin-bottom: 14px;
+}
+
+.mac-label {
+  display: block;
+  font-family: 'DotGothic16', 'Geneva', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.mac-textarea {
+  font-family: 'DotGothic16', 'Monaco', monospace;
+  font-size: 12px;
+  padding: 6px 8px;
+  background: white;
+  border: 2px solid;
+  border-color: var(--window-border-dark) var(--window-border-light) var(--window-border-light) var(--window-border-dark);
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  width: 100%;
+}
+
+.mac-textarea:focus {
+  outline: 2px solid var(--selection-blue);
+  outline-offset: 1px;
+}
+
+/* === FAB（Pixel Style）=== */
+.mac-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 48px;
+  height: 48px;
+  background: var(--window-border-dark);
+  border: 3px solid var(--window-border-dark);
+  box-shadow: var(--pixel-shadow);
+  color: var(--text-inverse);
+  font-family: 'Silkscreen', monospace;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s;
+  z-index: 50;
+}
+
+.mac-fab:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.mac-fab:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #000000;
+}
+
+/* === フッター === */
+.mac-footer {
+  background: var(--platinum);
+  border-top: 2px solid var(--window-border-dark);
+  padding: 12px;
+  text-align: center;
+}
+
+.mac-footer-text {
+  font-family: 'DotGothic16', 'Geneva', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* === ユーティリティ === */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -164,152 +581,146 @@ body {
   scrollbar-width: none;
 }
 
-@media (max-width: 640px) {
-  .entry-title {
-    font-size: 18px;
-    line-height: 1.3;
+/* === アニメーション === */
+@keyframes window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
-/* ==== Header polish (compact) ==== */
-.header-retro .brand {
-  display: flex;
+.animate-window {
+  animation: window-open 0.15s ease-out;
+}
+
+/* NEW バッジ（Pixel Style）*/
+.mac-badge-new {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: #FF0000;
+  color: white;
+  font-family: 'Silkscreen', monospace;
+  font-size: 8px;
+  padding: 2px 4px;
+  border: 1px solid #990000;
+  z-index: 5;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* いいねボタン */
+.mac-like-btn {
+  display: inline-flex;
   align-items: center;
-  gap: .5rem;
-  min-width: 0;
+  gap: 4px;
+  padding: 3px 8px;
+  font-family: 'DotGothic16', monospace;
+  font-size: 11px;
+  background: var(--platinum);
+  border: 1px solid var(--window-border-dark);
+  cursor: pointer;
 }
 
-.header-retro .brand-title {
-  white-space: nowrap;
-  font-weight: 900;
-  font-size: clamp(20px, 4vw, 24px);
-  letter-spacing: .02em;
-  color: var(--ink);
-  text-shadow: 2px 2px 0 #fff;
+.mac-like-btn:hover {
+  background: #FFCCCC;
 }
 
-.header-retro .brand-sub {
-  opacity: 1;
-  font-size: 12px;
-  font-weight: bold;
-  background: #fff;
-  padding: 2px 6px;
-  border: 2px solid var(--ink);
-  border-radius: 99px;
-  box-shadow: 2px 2px 0 0 var(--ink);
-  white-space: nowrap;
+.mac-like-btn.liked {
+  background: #FF6666;
+  color: white;
 }
 
-.header-actions {
+/* セパレータ */
+.mac-separator {
+  height: 2px;
+  background: var(--platinum-dark);
+  margin: 10px 0;
+  border-top: 1px solid var(--window-border-light);
+}
+
+/* Finder風ヘッダー */
+.mac-finder-header {
+  background: var(--platinum);
+  border: 2px solid var(--window-border-dark);
+  border-bottom: none;
+  padding: 10px 12px;
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
-  gap: .75rem;
 }
 
-.btn-auth {
-  height: 36px;
-  padding: 0 .8rem;
-  border-radius: 99px;
-  font-size: 13px;
-  font-weight: bold;
-  background: #ffffff;
-  color: #1a1a1a;
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 0 var(--ink);
-  transition: all 0.1s;
+/* === Hero Title（Pixel Art Style）=== */
+.hero-title {
+  font-family: 'Silkscreen', 'VT323', monospace;
+  font-size: 18px;
+  color: var(--text-primary);
+  text-shadow: 2px 2px 0 var(--platinum-dark);
+  letter-spacing: 1px;
 }
 
-.btn-auth:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0 0 var(--ink);
-  background: var(--popeye-yellow);
+/* Retro Icon */
+.retro-icon {
+  image-rendering: pixelated;
+  width: 48px;
+  height: 48px;
 }
 
-.btn-auth:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 0 var(--ink);
+/* CRT Scanline Effect (optional) */
+.crt-effect::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg,
+      rgba(0, 0, 0, 0.03) 0px,
+      rgba(0, 0, 0, 0.03) 1px,
+      transparent 1px,
+      transparent 2px);
+  z-index: 9999;
 }
 
-@media (max-width: 640px) {
-  .auth-name {
-    display: none;
-  }
+/* Rainbow Mac Apple Logo Colors */
+.rainbow-apple {
+  background: linear-gradient(180deg,
+      #61BB46 0%, #61BB46 16.66%,
+      #FDB827 16.66%, #FDB827 33.33%,
+      #F5821F 33.33%, #F5821F 50%,
+      #E03A3E 50%, #E03A3E 66.66%,
+      #963D97 66.66%, #963D97 83.33%,
+      #009DDC 83.33%, #009DDC 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.header-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 9999px;
-  object-fit: cover;
-  border: 2px solid var(--ink);
+/* リストアイテム */
+.mac-list-item {
+  background: var(--window-bg);
+  border: 1px solid var(--platinum-dark);
+  margin-bottom: 1px;
 }
 
-.nowrap {
-  white-space: nowrap;
+.mac-list-item:hover {
+  background: var(--selection-blue);
+  color: white;
 }
 
-.keep-all {
-  word-break: keep-all;
-}
-
-.header-retro .container-page {
-  line-height: 1;
-}
-
-.header-retro .brand {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-
-.header-retro .brand-sub {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 56vw;
-  font-size: 12px;
-}
-
-@media (max-width: 380px) {
-  .header-retro .brand-sub {
-    display: none;
-  }
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  flex-shrink: 0;
-}
-
-.btn-auth .label {
-  display: none;
-}
-
-.btn-auth .icon {
-  display: inline;
-}
-
-@media (min-width: 641px) {
-  .btn-auth .label {
-    display: inline;
-  }
-
-  .btn-auth .icon {
-    display: none;
-  }
-}
-
-.auth-name {
-  opacity: 1;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-@media (max-width:640px) {
-  .auth-name {
-    display: none;
-  }
+.mac-list-item.selected {
+  background: var(--selection-blue);
+  color: white;
 }

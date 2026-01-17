@@ -18,22 +18,31 @@ type Entry = {
   imageUrl: string;
   contributor: Contributor;
   likes: number;
-  commentCount: number;                 // ★ 追加
+  commentCount: number;
   createdAt?: string | Date;
   age?: number | null;
 };
 
 const FALLBACK_IMG = 'https://placehold.co/800x450?text=No+Image';
 
-function Pill({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="px-2 py-0.5 text-xs rounded-full bg-neutral-100 border border-neutral-200">
-      {children}
-    </span>
-  );
+const TAG_COLORS = [
+  'mac-tag-blue', 'mac-tag-purple', 'mac-tag-green', 'mac-tag-orange'
+];
+
+function getTagColor(index: number) {
+  return TAG_COLORS[index % TAG_COLORS.length];
 }
 
-/** いいねしたユーザー表示用の軽量ポップオーバー */
+// 新着かどうかを判定（24時間以内）
+function isNew(createdAt?: string | Date): boolean {
+  if (!createdAt) return false;
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diff = now.getTime() - created.getTime();
+  return diff < 24 * 60 * 60 * 1000;
+}
+
+/** いいねしたユーザー表示用のポップオーバー */
 function LikesPopover({
   users,
 }: {
@@ -41,31 +50,51 @@ function LikesPopover({
 }) {
   if (!users?.length) {
     return (
-      <div className="rounded-xl border bg-white shadow-lg p-3 text-xs text-neutral-600">
+      <div style={{
+        background: 'var(--platinum)',
+        border: '1px solid var(--window-border-dark)',
+        padding: '12px',
+        boxShadow: '2px 2px 8px rgba(0,0,0,0.2)',
+        fontSize: '12px',
+        color: 'var(--text-muted)'
+      }}>
         まだ「いいね」した人はいません
       </div>
     );
   }
   return (
-    <div className="min-w-[220px] max-w-[280px] rounded-xl border bg-white shadow-lg p-3">
-      <div className="text-xs font-medium text-neutral-700 mb-2">
-        いいねしたユーザー
+    <div style={{
+      minWidth: '180px',
+      maxWidth: '240px',
+      background: 'var(--window-bg)',
+      border: '1px solid var(--window-border-dark)',
+      boxShadow: '2px 2px 8px rgba(0,0,0,0.2)',
+    }}>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '600',
+        padding: '8px 12px',
+        background: 'var(--platinum)',
+        borderBottom: '1px solid var(--platinum-dark)'
+      }}>
+        ♥ いいねしたユーザー
       </div>
-      <ul className="space-y-2">
+      <ul style={{ listStyle: 'none', padding: '8px', margin: 0, display: 'grid', gap: '6px' }}>
         {users.slice(0, 10).map((u) => (
-          <li key={`${u.userId}`} className="flex items-center gap-2">
+          <li key={u.userId} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={u.userAvatar || 'https://i.pravatar.cc/100?img=1'}
               alt={u.userName}
-              className="w-6 h-6 rounded-full object-cover"
+              className="mac-avatar"
+              style={{ width: '24px', height: '24px' }}
             />
-            <span className="text-xs text-neutral-800 truncate">{u.userName}</span>
+            <span style={{ fontSize: '12px' }}>{u.userName}</span>
           </li>
         ))}
       </ul>
       {users.length > 10 && (
-        <div className="mt-2 text-[11px] text-neutral-500">
+        <div style={{ padding: '4px 12px 8px', fontSize: '11px', color: 'var(--text-muted)' }}>
           ほか {users.length - 10} 名
         </div>
       )}
@@ -75,21 +104,20 @@ function LikesPopover({
 
 export default function EntryCard({
   entry,
-  currentUserId: _currentUserId, // 将来用 
+  currentUserId: _currentUserId,
   onDeleted,
-  forceKebab: _forceKebab,     // 受け取りだけ
-  priority = false,            // 画像の優先読み込み設定
+  forceKebab: _forceKebab,
+  priority = false,
 }: {
   entry: Entry;
   currentUserId?: string;
   onDeleted?: (id: string) => void;
   forceKebab?: boolean;
-  priority?: boolean;          // 画像の優先読み込み設定
+  priority?: boolean;
 }) {
   const isRealId =
     entry.id && !String(entry.id).startsWith('tmp-') && String(entry.id).length > 12;
 
-  // ---- いいねユーザーのポップオーバー制御 ----
   const [likers, setLikers] = React.useState<
     { userId: string; userName: string; userAvatar?: string | null }[]
   >([]);
@@ -140,28 +168,33 @@ export default function EntryCard({
     return () => clearLongPress();
   }, []);
 
+  const showNewBadge = isNew(entry.createdAt);
+
   return (
     <motion.article
-      className="group relative sticker h-full flex flex-col"
+      className="mac-card"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      whileHover={{ scale: 1.02, rotate: -1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      viewport={{ once: true, margin: "-30px" }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
     >
-      {/* 右上メニュー —— 常に表示（誰でも削除可） */}
-      <div className="absolute right-3 top-3 z-10">
+      {/* NEWバッジ */}
+      {showNewBadge && <div className="mac-badge-new">NEW</div>}
+
+      {/* 右上メニュー */}
+      <div style={{ position: 'absolute', right: '8px', top: '8px', zIndex: 10 }}>
         <KebabMenu id={entry.id} onDeleted={onDeleted} />
       </div>
 
-      {/* 画像 */}
-      <div className="aspect-[4/3] w-full overflow-hidden border-b-2 border-black bg-neutral-100 first:rounded-t-[21px]">
+      {/* 画像エリア */}
+      <div className="mac-card-image">
         {isRealId ? (
           <Link href={`/entries/${entry.id}`}>
             <SafeImage
               src={entry.imageUrl || FALLBACK_IMG}
               alt={entry.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className="w-full h-full object-cover"
               fallbackSrc={FALLBACK_IMG}
               entryId={entry.id}
               priority={priority}
@@ -179,11 +212,12 @@ export default function EntryCard({
         )}
       </div>
 
-      <div className="p-5 flex flex-col flex-grow gap-3">
-        <div className="flex-grow">
-          <h3 className="entry-title font-black text-lg leading-tight mb-2">
+      {/* コンテンツ */}
+      <div className="mac-card-body" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, gap: '10px' }}>
+        <div style={{ flexGrow: 1 }}>
+          <h3 className="mac-card-title">
             {isRealId ? (
-              <Link href={`/entries/${entry.id}`} className="hover:text-popeye-blue transition-colors">
+              <Link href={`/entries/${entry.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
                 {entry.title}
               </Link>
             ) : (
@@ -191,61 +225,60 @@ export default function EntryCard({
             )}
           </h3>
 
-          <Expandable lines={3} className="text-sm font-medium text-neutral-700 leading-relaxed">
+          <Expandable lines={3} className="mac-card-text">
             {entry.episode}
           </Expandable>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-2">
-          {entry.tags?.slice(0, 4).map((t) => (
-            <Pill key={t}>{t}</Pill>
+        {/* タグ */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {entry.tags?.slice(0, 4).map((t, i) => (
+            <span key={t} className={`mac-tag ${getTagColor(i)}`}>
+              {t}
+            </span>
           ))}
         </div>
 
-        <div className="mt-2 pt-3 border-t-2 border-dashed border-neutral-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {/* セパレータ */}
+        <div className="mac-separator" />
+
+        {/* フッター */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          {/* 投稿者 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={entry.contributor?.avatarUrl || 'https://i.pravatar.cc/100?img=1'}
               alt={entry.contributor?.name || 'unknown'}
-              className="w-8 h-8 rounded-full object-cover border-2 border-black"
+              className="mac-avatar"
+              style={{ width: '28px', height: '28px' }}
             />
-            <span className="text-xs font-bold text-neutral-600 truncate max-w-[100px]">
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', maxWidth: '70px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {entry.contributor?.name || 'unknown'}
             </span>
           </div>
 
-          {/* 右側アクション（コメント数＋いいね） */}
-          <div className="flex items-center gap-3">
-            {/* コメント数（詳細ページへのリンク） */}
+          {/* アクション */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* コメント */}
             <Link
               href={`/entries/${entry.id}`}
-              className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-yellow-100 transition-colors text-neutral-700 border-2 border-transparent hover:border-black"
+              className="mac-like-btn"
               title="コメントを見る"
             >
-              {/* 軽量吹き出しSVG */}
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8l-4 4V6a1 1 0 0 1 1-1Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              💬
               {entry.commentCount > 0 && (
-                <span className="ml-1 text-xs font-bold">{entry.commentCount}</span>
+                <span style={{ fontWeight: '600' }}>{entry.commentCount}</span>
               )}
             </Link>
 
-            {/* いいね（ホバー/長押しでユーザー一覧） */}
+            {/* いいね */}
             <div
-              className="relative"
+              style={{ position: 'relative' }}
               onMouseEnter={onMouseEnterLike}
               onMouseLeave={onMouseLeaveLike}
               onTouchStart={onTouchStartLike}
@@ -254,7 +287,7 @@ export default function EntryCard({
             >
               <LikeButton id={entry.id} count={entry.likes} />
               {showLikers && (
-                <div className="absolute right-0 bottom-full mb-2 z-50">
+                <div style={{ position: 'absolute', right: 0, bottom: '100%', marginBottom: '6px', zIndex: 50 }}>
                   <LikesPopover users={likers} />
                 </div>
               )}

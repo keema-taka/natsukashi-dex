@@ -175,14 +175,16 @@ export default function EntriesList(props: {
 
   if (!filtered.length) {
     return (
-      <section className="container-page py-10">
-        <p className="text-neutral-600">条件に一致する思い出がありません。</p>
+      <section className="container-retro" style={{ padding: '40px 16px', textAlign: 'center' }}>
+        <p style={{ color: 'var(--ink-light)', fontSize: '16px' }}>
+          条件に一致する思い出がありません 🔍
+        </p>
       </section>
     );
   }
 
   return (
-    <section className="container-page pb-16 pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <section className="container-mac mac-grid">
       {filtered.map((e, index) => (
         <EntryCard
           key={e.id}

@@ -105,17 +105,12 @@ export default function LikeButton({ id, count }: { id: string; count: number })
       aria-pressed={liked}
       aria-label={liked ? 'いいねを取り消す' : 'いいねする'}
       title={liked ? 'いいね解除' : 'いいね！'}
-      className={`relative px-2 h-8 inline-flex items-center gap-1.5 rounded-full border text-[13px] select-none
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300/60 active:scale-95
-        transition-all duration-150 ease-out shadow-sm hover:shadow-md
-        ${liked ? 'bg-pink-50 border-pink-200 text-pink-600' : 'bg-white hover:bg-neutral-50 border-neutral-300 text-neutral-800'}
-        ${busy ? 'opacity-60 cursor-wait' : ''}`}
+      className={`mac-like-btn ${liked ? 'liked' : ''}`}
+      style={{ opacity: busy ? 0.6 : 1, cursor: busy ? 'wait' : 'pointer', position: 'relative' }}
     >
-      <span className={`text-base leading-none ${liked ? 'opacity-100' : 'opacity-80'}`}>
-        {liked ? '❤️' : '🤍'}
-      </span>
-      <span className="tabular-nums">{count}</span>
-      {liked && popping && <span className="absolute -top-2 right-0 text-xs">✦</span>}
+      <span>{liked ? '❤️' : '🤍'}</span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{count}</span>
+      {liked && popping && <span style={{ position: 'absolute', top: '-6px', right: '0', fontSize: '10px' }}>✦</span>}
     </button>
   );
 }
