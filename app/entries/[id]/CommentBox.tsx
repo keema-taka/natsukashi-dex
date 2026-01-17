@@ -101,38 +101,58 @@ export default function CommentBox({ entryId }: { entryId: string }) {
   };
 
   return (
-    <section className="grid gap-3">
-      <h2 className="text-lg font-semibold">コメント</h2>
+    <section className="grid gap-4 mt-8">
+      <h2 className="text-sm font-['Silkscreen'] pl-1">COMMENTS ({comments.length})</h2>
 
-      <div className="rounded-xl border p-3 bg-white grid gap-2">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="ひとこと残す…" className="border rounded-lg px-3 py-2 min-h-[72px]" />
+      <div className="mac-window p-3 bg-[var(--platinum)]">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="ひとこと残す…"
+          className="mac-textarea mb-2 font-['DotGothic16']"
+        />
         <div className="flex items-center justify-end">
-          <button onClick={postComment} className="px-3 py-1.5 rounded-lg bg-black text-white disabled:opacity-50" disabled={!text.trim()}>
-            投稿
+          <button
+            onClick={postComment}
+            className="mac-button bg-[var(--window-border-dark)] text-white disabled:opacity-50"
+            disabled={!text.trim()}
+          >
+            WRITE
           </button>
         </div>
       </div>
 
-      <div className="grid gap-3">
-        {isLoading && <div className="text-sm text-neutral-500">読み込み中…</div>}
+      <div className="grid gap-2">
+        {isLoading && <div className="text-sm text-[var(--text-muted)] font-['DotGothic16'] text-center py-4">Loading...</div>}
         {comments.map((c) => (
-          <div key={c.id} className="rounded-xl border p-3 bg-white">
-            <div className="flex items-center gap-2">
+          <div key={c.id} className="bg-[var(--window-bg)] border-2 border-[var(--window-border-dark)] p-3 shadow-sm">
+            <div className="flex items-start gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={c.author?.avatarUrl ?? "https://i.pravatar.cc/100?img=1"} alt={c.author?.name ?? "unknown"} className="w-7 h-7 rounded-full object-cover" />
-              <div className="text-sm">
-                <div className="font-medium">{c.author?.name ?? "unknown"}</div>
-                <div className="text-xs text-neutral-500">{new Date(c.createdAt).toLocaleString()}</div>
-              </div>
-              <div className="ml-auto flex items-center gap-2 text-xs">
-                <button className="px-2 py-1 rounded border" onClick={() => onEdit(c)}>編集</button>
-                <button className="px-2 py-1 rounded border" onClick={() => onDelete(c)}>削除</button>
+              <img
+                src={c.author?.avatarUrl ?? "https://i.pravatar.cc/100?img=1"}
+                alt={c.author?.name ?? "unknown"}
+                className="mac-avatar"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="font-bold text-xs">{c.author?.name ?? "unknown"}</div>
+                  <div className="text-[10px] text-[var(--text-muted)]">{new Date(c.createdAt).toLocaleString()}</div>
+                </div>
+                <p className="text-sm whitespace-pre-wrap font-['DotGothic16'] leading-relaxed">{c.body}</p>
               </div>
             </div>
-            <p className="mt-2 text-sm whitespace-pre-wrap">{c.body}</p>
+
+            <div className="flex justify-end gap-2 mt-2">
+              <button className="text-[10px] underline text-[var(--text-muted)] hover:text-black" onClick={() => onEdit(c)}>EDIT</button>
+              <button className="text-[10px] underline text-[var(--text-muted)] hover:text-red-600" onClick={() => onDelete(c)}>DELETE</button>
+            </div>
           </div>
         ))}
-        {!isLoading && comments.length === 0 && <div className="text-sm text-neutral-500">まだコメントはありません。</div>}
+        {!isLoading && comments.length === 0 && (
+          <div className="text-center py-8 border-2 border-dashed border-[var(--platinum-dark)] text-[var(--text-muted)] font-['DotGothic16'] bg-[var(--window-bg)]">
+            まだコメントはありません。
+          </div>
+        )}
       </div>
     </section>
   );

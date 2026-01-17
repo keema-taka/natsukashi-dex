@@ -131,51 +131,67 @@ export default async function EntryPage({
   };
 
   return (
-    <div className="container-page py-8 grid gap-6">
-      <Link href="/" className="text-sm text-neutral-500 hover:underline">
-        ← 一覧へ
-      </Link>
+    <div className="container-mac py-8">
+      <div className="mb-4">
+        <Link href="/" className="mac-button inline-flex items-center gap-1" style={{ textDecoration: 'none' }}>
+          <span>←</span> Back to Index
+        </Link>
+      </div>
 
-      <article className="card--pixel overflow-hidden">
-        {/* 画像 */}
-        <div className="aspect-[16/9] w-full img-fallback">
-          <SafeImage
-            src={e.imageUrl}
-            alt={e.title}
-            className="w-full h-full object-cover"
-            fallbackSrc={FALLBACK_IMG}
-            entryId={e.id}
-          />
+      <article className="mac-window animate-window mb-8">
+        <div className="mac-titlebar">
+          <div className="mac-controls">
+            <div className="mac-close" />
+          </div>
+          <div className="mac-title">{e.title}</div>
         </div>
 
-        <div className="p-5 grid gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{e.title}</h1>
-
-          <div className="text-neutral-700">
-            <Expandable lines={3}>{e.episode}</Expandable>
+        <div className="mac-content">
+          {/* 画像エリア */}
+          <div className="border-2 border-black mb-6 bg-[var(--platinum)]">
+            <div className="aspect-[16/9] w-full relative">
+              <SafeImage
+                src={e.imageUrl}
+                alt={e.title}
+                className="w-full h-full object-contain"
+                fallbackSrc={FALLBACK_IMG}
+                entryId={e.id}
+              />
+            </div>
           </div>
 
-          {/* 年齢・タグ */}
-          <div className="text-sm text-neutral-600 flex flex-wrap gap-2">
-            {e.age != null && <span className="pill">当時 {e.age} 歳</span>}
-            {e.tags.map((t) => (
-              <span key={t} className="pill">
-                {t}
-              </span>
-            ))}
-          </div>
+          <div className="grid gap-4">
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="text-xl font-bold font-['Silkscreen'] tracking-wide">{e.title}</h1>
+              <div className="flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={e.contributor.avatarUrl || "https://i.pravatar.cc/100?img=1"}
+                  alt={e.contributor.name || "unknown"}
+                  className="mac-avatar"
+                />
+                <div className="text-xs">
+                  <div className="font-bold">{e.contributor.name || "unknown"}</div>
+                  <div className="text-[var(--text-muted)] text-[10px]">{new Date(e.createdAt).toLocaleDateString()}</div>
+                </div>
+              </div>
+            </div>
 
-          {/* 投稿者 */}
-          <div className="flex items-center gap-2 pt-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={e.contributor.avatarUrl || "https://i.pravatar.cc/100?img=1"}
-              alt={e.contributor.name || "unknown"}
-              className="w-8 h-8 rounded-full object-cover"
-            />
-            <span className="text-sm text-neutral-700">
-              by {e.contributor.name || "unknown"}
-            </span>
+            <div className="mac-separator" />
+
+            <div className="text-[var(--text-primary)] leading-relaxed font-['DotGothic16'] text-sm p-4 bg-[var(--platinum-light)] border-2 border-[var(--window-border-dark)] border-inset shadow-inner">
+              <Expandable lines={5}>{e.episode}</Expandable>
+            </div>
+
+            {/* 年齢・タグ */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {e.age != null && <span className="mac-tag mac-tag-blue">当時 {e.age} 歳</span>}
+              {e.tags.map((t) => (
+                <span key={t} className="mac-tag">
+                  {t}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </article>
