@@ -724,3 +724,158 @@ body {
   background: var(--selection-blue);
   color: white;
 }
+
+/* === Discord Assistant（カイル風）=== */
+.discord-assistant {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* 吹き出し */
+.assistant-bubble {
+  position: relative;
+  background: var(--window-bg);
+  border: 2px solid var(--window-border-dark);
+  box-shadow: var(--pixel-shadow);
+  padding: 14px 16px;
+  max-width: 220px;
+  font-family: 'DotGothic16', 'Geneva', monospace;
+}
+
+/* 吹き出しの三角形 */
+.assistant-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  right: 30px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--window-bg);
+}
+
+.assistant-bubble::before {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  right: 28px;
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 12px solid var(--window-border-dark);
+}
+
+.bubble-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.bubble-close:hover {
+  color: var(--text-primary);
+  background: var(--platinum);
+}
+
+.bubble-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+  white-space: pre-line;
+}
+
+.bubble-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: #5865F2;
+  color: white;
+  border: 2px solid #4752C4;
+  font-family: 'Silkscreen', 'Chicago', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.bubble-login-btn:hover {
+  background: #4752C4;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.bubble-login-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* キャラクター本体 */
+.assistant-character {
+  cursor: pointer;
+  animation: float 3s ease-in-out infinite;
+  transition: transform 0.2s;
+}
+
+.assistant-character:hover {
+  transform: scale(1.1);
+}
+
+.assistant-character.wave {
+  animation: wave-hello 0.5s ease-in-out;
+}
+
+.character-body {
+  background: var(--window-bg);
+  border: 2px solid var(--window-border-dark);
+  border-radius: 50%;
+  padding: 10px;
+  box-shadow: var(--pixel-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes wave-hello {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+
+/* モバイル対応 */
+@media (max-width: 640px) {
+  .discord-assistant {
+    right: 12px;
+    bottom: 80px; /* FABの上に配置 */
+  }
+
+  .assistant-bubble {
+    max-width: 180px;
+    padding: 12px 14px;
+  }
+
+  .bubble-text {
+    font-size: 11px;
+  }
+
+  .character-body svg {
+    width: 48px;
+    height: 48px;
+  }
+}
