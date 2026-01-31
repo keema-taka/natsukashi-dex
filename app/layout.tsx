@@ -2,7 +2,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import HeaderAuth from "./HeaderAuth";
 
 export const metadata: Metadata = {
   title: "平成レトロ図鑑 | 平成の思い出コレクション",
@@ -27,6 +26,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* ドット絵風フォント */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Silkscreen:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
       </head>
 
       <body>
@@ -39,9 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="menubar-item">Edit</span>
               <span className="menubar-item">View</span>
             </nav>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <HeaderAuth />
-            </div>
           </header>
 
           {/* メインコンテンツ */}
