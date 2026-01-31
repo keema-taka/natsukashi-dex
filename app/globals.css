@@ -54,7 +54,7 @@ html {
 }
 
 body {
-  font-family: 'DotGothic16', 'VT323', 'Chicago', 'Geneva', monospace;
+  font-family: 'DotGothic16', 'Silkscreen', monospace;
   background: var(--desktop-bg);
   color: var(--text-primary);
   min-height: 100vh;
@@ -71,6 +71,19 @@ body {
       rgba(0, 0, 0, 0.05) 1px,
       rgba(0, 0, 0, 0.05) 2px);
   image-rendering: pixelated;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+}
+
+/* ドット絵風フォント適用 */
+h1, h2, h3, h4, h5, h6,
+.menubar, .mac-button, button,
+.mac-window-title, .entry-title {
+  font-family: 'Silkscreen', 'DotGothic16', monospace;
+}
+
+p, span, div, input, textarea, select, label {
+  font-family: 'DotGothic16', 'Silkscreen', monospace;
 }
 
 /* === Classic Mac 3D Border === */
